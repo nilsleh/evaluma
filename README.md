@@ -175,7 +175,7 @@ If you use evaluma in your research, please cite:
 ```bibtex
 @software{lehmann2026evaluma,
   author  = {Lehmann, Nils},
-  title   = {evaluma: Holistic ML Benchmark Ranking},
+  title   = {evaluma: ML Benchmark Ranking Tools},
   year    = {2026},
   url     = {https://github.com/nilsleh/evaluma},
   version = {0.1.0},
