@@ -16,7 +16,7 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
-  "License :: OSI Approved :: Apache 2.0",
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
 ]
@@ -48,7 +48,7 @@ dev = ["pytest", "pytest-cov", "ruff", "ty"]
 [project.urls]
 Homepage = "https://github.com/nilsleh/evaluma"
 Repository = "https://github.com/nilsleh/evaluma"
-Documentation = "https://nilsleh.github.io/evaluma"
+Documentation = "https://evaluma.readthedocs.io"
 
 [project.scripts]
 evaluma = "evaluma.cli:main"

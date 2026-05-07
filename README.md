@@ -8,7 +8,7 @@
 <a href="https://codecov.io/gh/nilsleh/evaluma"><img src="https://codecov.io/gh/nilsleh/evaluma/branch/main/graph/badge.svg" alt="Coverage"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
 <a href="https://pypi.org/project/evaluma/"><img src="https://img.shields.io/pypi/v/evaluma.svg" alt="PyPI"></a>
-<a href="https://nilsleh.github.io/evaluma"><img src="https://img.shields.io/badge/docs-nilsleh.github.io-blue.svg" alt="Docs"></a>
+<a href="https://evaluma.readthedocs.io"><img src="https://img.shields.io/readthedocs/evaluma.svg" alt="Docs"></a>
 </p>
 
 # evaluma
@@ -23,7 +23,7 @@ A small Python package for comparing machine learning models across benchmark su
 ## Documentation
 
 Full documentation, including tutorials and API reference, is available at
-[nilsleh.github.io/evaluma](https://nilsleh.github.io/evaluma).
+[evaluma.readthedocs.io](https://evaluma.readthedocs.io).
 
 ## Installation
 
