@@ -1,6 +1,6 @@
 # evaluma
 
-**Holistic ML benchmark ranking** — Interquartile mean, Bayesian pairwise comparison, and Dolan-Moré performance profiles in a single Python API and CLI.
+**ML benchmark ranking tools** — Interquartile mean, Bayesian pairwise comparison, and Dolan-Moré performance profiles in a single Python API and CLI.
 
 ::::{grid} 1 1 3 3
 :class-container: text-center

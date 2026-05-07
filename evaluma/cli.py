@@ -144,7 +144,7 @@ def _save(result, stem, output_dir):
 
 @click.group()
 def main():
-    """evaluma — holistic ML benchmark evaluation."""
+    """evaluma — ML benchmark evaluation tools."""
 
 
 @main.command()

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "evaluma"
 dynamic = ["version"]
-description = "Holistic ML benchmark ranking — IQM, Bayesian pairwise, and Dolan-Moré performance profiles"
+description = "ML benchmark ranking tools — IQM, Bayesian pairwise, and Dolan-Moré performance profiles"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache 2.0" }
