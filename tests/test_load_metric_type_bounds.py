@@ -63,6 +63,7 @@ def _mixed_rows():
 # Bounded metrics without explicit metric_type_bounds entries
 # ---------------------------------------------------------------------------
 
+
 def test_bounded_metrics_no_bounds_spec():
     """IoU datasets with metric_type_bounds={} silently use natural [0,1] bounds."""
     df = _make_df(_iou_rows())
@@ -76,6 +77,7 @@ def test_bounded_metrics_no_bounds_spec():
 # ---------------------------------------------------------------------------
 # Regression metric with scalar ceiling
 # ---------------------------------------------------------------------------
+
 
 def test_regression_metric_with_scalar_high():
     """RMSE dataset with explicit scalar ceiling produces normalized scores in [0,1]."""
@@ -93,8 +95,9 @@ def test_regression_metric_with_scalar_high():
 # Regression metric with model-name ceiling
 # ---------------------------------------------------------------------------
 
+
 def test_regression_metric_with_model_name_high():
-    """metric_type_bounds with a model name uses that model's per-dataset score as ceiling."""
+    """metric_type_bounds with a model name uses that model's score as ceiling."""
     df = _make_df(_rmse_rows())
     bench = evaluma.load_df(df, metric_type_bounds={"rmse": (0.0, "baseline")})
     norm = bench.scores_
@@ -108,6 +111,7 @@ def test_regression_metric_with_model_name_high():
 # ---------------------------------------------------------------------------
 # Mixed IoU + RMSE benchmark
 # ---------------------------------------------------------------------------
+
 
 def test_mixed_iou_and_rmse():
     """Benchmark with IoU and RMSE datasets; all normalized scores in [0, 1]."""
@@ -127,6 +131,7 @@ def test_mixed_iou_and_rmse():
 # ---------------------------------------------------------------------------
 # Error cases
 # ---------------------------------------------------------------------------
+
 
 def test_conflict_raises():
     """Combining metric_type_bounds with norm_ref_high raises ValueError."""
@@ -171,8 +176,10 @@ def test_metric_direction_override():
         metric_direction={"d_iou_0": "min"},
     )
     # In normal mode A > B on d_iou_0; after flip the ranking should invert
-    assert bench_normal.scores_.loc["A", "d_iou_0"] > bench_normal.scores_.loc["B", "d_iou_0"]
-    assert bench_flipped.scores_.loc["A", "d_iou_0"] < bench_flipped.scores_.loc["B", "d_iou_0"]
+    normal = bench_normal.scores_
+    flipped = bench_flipped.scores_
+    assert normal.loc["A", "d_iou_0"] > normal.loc["B", "d_iou_0"]
+    assert flipped.loc["A", "d_iou_0"] < flipped.loc["B", "d_iou_0"]
 
 
 def test_model_name_not_found_raises():

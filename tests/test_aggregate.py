@@ -71,6 +71,7 @@ def test_aggregate_invalid_agg(bench):
 
 # --- ported from test_iqm.py (trimmed-mean arithmetic) ---
 
+
 def test_aggregate_middle_four_equals_mean():
     scores = [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
     rows = [
@@ -78,8 +79,13 @@ def test_aggregate_middle_four_equals_mean():
         for i, s in enumerate(scores)
     ]
     b = evaluma.load_df(
-        pd.DataFrame(rows), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     result = b.aggregate_ranking(agg="trimmed_mean")
     expected = np.mean(sorted(scores)[2:6])
@@ -97,12 +103,22 @@ def test_aggregate_outlier_stability():
         {"model": "M", "dataset": "d5", "metric": "acc", "score": 0.99},
     ]
     b_base = evaluma.load_df(
-        pd.DataFrame(rows_base), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows_base),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     b_out = evaluma.load_df(
-        pd.DataFrame(rows_outlier), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows_outlier),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     score_base = b_base.aggregate_ranking(agg="trimmed_mean").table.iloc[0]["score"]
     score_out = b_out.aggregate_ranking(agg="trimmed_mean").table.iloc[0]["score"]
@@ -116,8 +132,13 @@ def test_aggregate_tied_models_equal():
         for d in ["d1", "d2", "d3", "d4"]
     ]
     b = evaluma.load_df(
-        pd.DataFrame(rows), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     result = b.aggregate_ranking(agg="trimmed_mean")
     scores = result.table.set_index("model")["score"]
@@ -127,8 +148,13 @@ def test_aggregate_tied_models_equal():
 def test_aggregate_single_dataset():
     rows = [{"model": "M", "dataset": "d1", "metric": "acc", "score": 0.65}]
     b = evaluma.load_df(
-        pd.DataFrame(rows), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     result = b.aggregate_ranking(agg="trimmed_mean")
     assert abs(result.table.iloc[0]["score"] - 0.65) < 1e-9
@@ -140,8 +166,13 @@ def test_aggregate_all_perfect():
         for i in range(4)
     ]
     b = evaluma.load_df(
-        pd.DataFrame(rows), model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        pd.DataFrame(rows),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     result = b.aggregate_ranking(agg="trimmed_mean")
     assert abs(result.table.iloc[0]["score"] - 1.0) < 1e-9

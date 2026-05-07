@@ -55,9 +55,9 @@ def compute_iqm(raw_runs, norm_bounds, n_bootstrap=1000, random_state=None):
             per_dataset[m].append(norm)
 
     # Point estimates: flat-array IQM
-    iqms_arr = np.array([
-        trim_mean(np.concatenate(per_dataset[m]), 0.25) for m in models
-    ])
+    iqms_arr = np.array(
+        [trim_mean(np.concatenate(per_dataset[m]), 0.25) for m in models]
+    )
 
     if n_bootstrap == 0:
         table = (

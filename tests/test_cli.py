@@ -48,11 +48,16 @@ def test_report_writes_six_files(tmp_path):
         [
             "report",
             csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -98,12 +103,18 @@ def test_rank_exits_without_seed(tmp_path):
     result = runner.invoke(
         main,
         [
-            "rank", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "rank",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code != 0
@@ -118,13 +129,20 @@ def test_rank_succeeds_with_seed(tmp_path):
     result = runner.invoke(
         main,
         [
-            "rank", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--seed", "seed",
-            "--output", str(out),
+            "rank",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--seed",
+            "seed",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -139,14 +157,22 @@ def test_metric_direction_cli_syntax(tmp_path):
     result = runner.invoke(
         main,
         [
-            "rank", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--seed", "seed",
-            "--metric-direction", "acc:max",
-            "--output", str(out),
+            "rank",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--seed",
+            "seed",
+            "--metric-direction",
+            "acc:max",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -160,13 +186,20 @@ def test_rank_subcommand(tmp_path):
     result = runner.invoke(
         main,
         [
-            "rank", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--seed", "seed",
-            "--output", str(out),
+            "rank",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--seed",
+            "seed",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -182,12 +215,18 @@ def test_aggregate_subcommand_creates_files(tmp_path):
     result = runner.invoke(
         main,
         [
-            "aggregate", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "aggregate",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -203,13 +242,20 @@ def test_aggregate_subcommand_agg_option(tmp_path):
     result = runner.invoke(
         main,
         [
-            "aggregate", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--agg", "mean",
-            "--output", str(out),
+            "aggregate",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--agg",
+            "mean",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -223,12 +269,18 @@ def test_compare_subcommand(tmp_path):
     result = runner.invoke(
         main,
         [
-            "compare", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "compare",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -244,12 +296,18 @@ def test_profiles_subcommand(tmp_path):
     result = runner.invoke(
         main,
         [
-            "profiles", csv,
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "profiles",
+            csv,
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -261,8 +319,8 @@ def _write_mixed_csv(tmp_path):
     """CSV with IoU and RMSE datasets; 'baseline' model present for RMSE ceiling."""
     rows = []
     for m, iou_scores, rmse_scores in [
-        ("A",        [0.9, 0.8], [1.5, 2.0]),
-        ("B",        [0.6, 0.7], [2.5, 3.0]),
+        ("A", [0.9, 0.8], [1.5, 2.0]),
+        ("B", [0.6, 0.7], [2.5, 3.0]),
         ("baseline", [0.4, 0.5], [4.0, 5.0]),
     ]:
         for i, s in enumerate(iou_scores):

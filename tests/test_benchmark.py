@@ -86,10 +86,13 @@ def test_scores_cached_property_averages_runs(bench_runs, bench):
     assert bench_runs.scores_.shape == (3, 4)
     for model in ["A", "B", "C"]:
         for dataset in ["d1", "d2", "d3", "d4"]:
-            assert abs(
-                bench_runs.scores_.loc[model, dataset]
-                - bench.scores_.loc[model, dataset]
-            ) < 1e-9
+            assert (
+                abs(
+                    bench_runs.scores_.loc[model, dataset]
+                    - bench.scores_.loc[model, dataset]
+                )
+                < 1e-9
+            )
 
 
 def test_scores_cached_property_no_seeds_unchanged(bench):

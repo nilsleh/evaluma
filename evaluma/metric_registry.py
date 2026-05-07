@@ -1,22 +1,22 @@
-"""Metric name registry: maps metric names to optimization direction and natural bounds."""
+"""Metric name registry: maps names to optimization direction and natural bounds."""
 
 KNOWN_METRICS = {
-    # name: (direction, (natural_low, natural_high))  — None high means user must specify
-    "accuracy":  ("max", (0.0, 1.0)),
-    "acc":       ("max", (0.0, 1.0)),
-    "iou":       ("max", (0.0, 1.0)),
-    "miou":      ("max", (0.0, 1.0)),
-    "f1":        ("max", (0.0, 1.0)),
-    "auc":       ("max", (0.0, 1.0)),
-    "ap":        ("max", (0.0, 1.0)),
-    "map":       ("max", (0.0, 1.0)),
+    # name: (direction, (natural_low, natural_high))  — None high: user must specify
+    "accuracy": ("max", (0.0, 1.0)),
+    "acc": ("max", (0.0, 1.0)),
+    "iou": ("max", (0.0, 1.0)),
+    "miou": ("max", (0.0, 1.0)),
+    "f1": ("max", (0.0, 1.0)),
+    "auc": ("max", (0.0, 1.0)),
+    "ap": ("max", (0.0, 1.0)),
+    "map": ("max", (0.0, 1.0)),
     "precision": ("max", (0.0, 1.0)),
-    "recall":    ("max", (0.0, 1.0)),
-    "r2":        ("max", (0.0, 1.0)),
-    "rmse":      ("min", (0.0, None)),
-    "mae":       ("min", (0.0, None)),
-    "mse":       ("min", (0.0, None)),
-    "mape":      ("min", (0.0, None)),
+    "recall": ("max", (0.0, 1.0)),
+    "r2": ("max", (0.0, 1.0)),
+    "rmse": ("min", (0.0, None)),
+    "mae": ("min", (0.0, None)),
+    "mse": ("min", (0.0, None)),
+    "mape": ("min", (0.0, None)),
 }
 
 _KNOWN_LIST = ", ".join(sorted(KNOWN_METRICS))

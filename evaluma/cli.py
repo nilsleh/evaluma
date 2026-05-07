@@ -45,9 +45,9 @@ def _common_options(f):
     f = click.option("--dataset", default="dataset")(f)
     f = click.option("--metric", default="metric")(f)
     f = click.option("--score", default="score")(f)
-    f = click.option(
-        "--config", "config_path", default=None, help="YAML config file"
-    )(f)
+    f = click.option("--config", "config_path", default=None, help="YAML config file")(
+        f
+    )
     f = click.option(
         "--metric-direction",
         multiple=True,
@@ -154,7 +154,13 @@ def report(
 ):
     """Run all three analyses and write results to ``--output``."""
     bench = _load_bench(
-        csv_path, model, dataset, metric, score, config_path, metric_direction,
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
         output_dir,
     )
     _save(bench.aggregate_ranking(), "aggregate_ranking", output_dir)
@@ -166,13 +172,27 @@ def report(
 @_common_options
 @click.option("--seed", default=None, help="Column name for the random seed.")
 def rank(
-    csv_path, model, dataset, metric, score, config_path, metric_direction,
-    output_dir, seed,
+    csv_path,
+    model,
+    dataset,
+    metric,
+    score,
+    config_path,
+    metric_direction,
+    output_dir,
+    seed,
 ):
     """Compute IQM rankings (requires seed column) and write iqm_ranking.{csv,png}."""
     bench = _load_bench(
-        csv_path, model, dataset, metric, score, config_path, metric_direction,
-        output_dir, seed=seed,
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
+        output_dir,
+        seed=seed,
     )
     if bench._raw_runs is None:
         click.echo(
@@ -193,12 +213,25 @@ def rank(
     help="Aggregation mode: trimmed_mean, mean, or median.",
 )
 def aggregate(
-    csv_path, model, dataset, metric, score, config_path, metric_direction,
-    output_dir, agg,
+    csv_path,
+    model,
+    dataset,
+    metric,
+    score,
+    config_path,
+    metric_direction,
+    output_dir,
+    agg,
 ):
     """Compute point-estimate aggregate ranking and write aggregate_ranking.csv/png."""
     bench = _load_bench(
-        csv_path, model, dataset, metric, score, config_path, metric_direction,
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
         output_dir,
     )
     _save(bench.aggregate_ranking(agg=agg), "aggregate_ranking", output_dir)
@@ -211,7 +244,13 @@ def compare(
 ):
     """Compute Bayesian pairwise comparisons and write results."""
     bench = _load_bench(
-        csv_path, model, dataset, metric, score, config_path, metric_direction,
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
         output_dir,
     )
     _save(bench.bayesian_comparison(), "bayesian_comparison", output_dir)
@@ -224,7 +263,13 @@ def profiles(
 ):
     """Compute Dolan-Moré performance profiles and write results."""
     bench = _load_bench(
-        csv_path, model, dataset, metric, score, config_path, metric_direction,
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
         output_dir,
     )
     _save(bench.performance_profiles(), "performance_profiles", output_dir)

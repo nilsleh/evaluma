@@ -24,9 +24,7 @@ def compute_aggregate(
         ValueError: If ``agg`` is not one of the supported modes.
     """
     if agg not in _AGG_MODES:
-        raise ValueError(
-            f"agg must be one of {sorted(_AGG_MODES)!r}, got {agg!r}"
-        )
+        raise ValueError(f"agg must be one of {sorted(_AGG_MODES)!r}, got {agg!r}")
 
     models = scores_matrix.index.tolist()
     data = scores_matrix.values  # shape (n_models, n_datasets)

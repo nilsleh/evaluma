@@ -6,10 +6,16 @@ import evaluma
 
 def test_load_df_basic(score_df):
     result = evaluma.load_df(
-        score_df, model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        score_df,
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     from evaluma.benchmark import Benchmark
+
     assert isinstance(result, Benchmark)
     assert result.scores_.shape == (3, 4)
 
@@ -19,8 +25,13 @@ def test_load_df_custom_column_names(score_df):
         columns={"model": "exp", "dataset": "task", "metric": "m", "score": "val"}
     )
     result = evaluma.load_df(
-        df, model="exp", dataset="task", metric="m", score="val",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        df,
+        model="exp",
+        dataset="task",
+        metric="m",
+        score="val",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     assert result.scores_.shape == (3, 4)
 
@@ -64,8 +75,13 @@ def test_load_df_seed_column_values_preserved(score_df_seeded):
 
 def test_load_df_no_seed_raw_runs_none(score_df):
     bench = evaluma.load_df(
-        score_df, model="model", dataset="dataset", metric="metric", score="score",
-        norm_ref_low=0.0, norm_ref_high=1.0,
+        score_df,
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        norm_ref_low=0.0,
+        norm_ref_high=1.0,
     )
     assert bench._raw_runs is None
 
@@ -74,8 +90,12 @@ def test_load_df_missing_cell_raises(score_df_missing):
     with pytest.raises(ValueError, match="Incomplete score matrix"):
         evaluma.load_df(
             score_df_missing,
-            model="model", dataset="dataset", metric="metric", score="score",
-            norm_ref_low=0.0, norm_ref_high=1.0,
+            model="model",
+            dataset="dataset",
+            metric="metric",
+            score="score",
+            norm_ref_low=0.0,
+            norm_ref_high=1.0,
         )
 
 
@@ -86,8 +106,13 @@ def test_load_df_multi_metric_raises(score_df):
     df = pd.concat([df, extra], ignore_index=True)
     with pytest.raises(ValueError, match="more than one.*metric"):
         evaluma.load_df(
-            df, model="model", dataset="dataset", metric="metric", score="score",
-            norm_ref_low=0.0, norm_ref_high=1.0,
+            df,
+            model="model",
+            dataset="dataset",
+            metric="metric",
+            score="score",
+            norm_ref_low=0.0,
+            norm_ref_high=1.0,
         )
 
 

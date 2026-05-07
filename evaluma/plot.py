@@ -117,7 +117,12 @@ def plot_bayesian_heatmap(table: pd.DataFrame, *, title=None, figsize=None, **_k
         for j in range(n):
             if not np.isnan(matrix[i, j]):
                 ax.text(
-                    j, i, f"{matrix[i, j]:.2f}", ha="center", va="center", fontsize=fs*1.1
+                    j,
+                    i,
+                    f"{matrix[i, j]:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=fs * 1.1,
                 )
 
     ax.set_xticks(range(n))
@@ -167,20 +172,44 @@ def plot_bayesian_reference_bars(
     ax.barh(models, p_model, color="#2563EB", label=f"P(model > {reference})")
     ax.barh(models, p_equiv, left=p_model, color="#9CA3AF", label="P(equivalent)")
     ax.barh(
-        models, p_ref, left=p_model + p_equiv, color="#DC2626",
-        label=f"P({reference} > model)"
+        models,
+        p_ref,
+        left=p_model + p_equiv,
+        color="#DC2626",
+        label=f"P({reference} > model)",
     )
 
     for i, (pw, pe, pr) in enumerate(zip(p_model, p_equiv, p_ref)):
         if pw > 0.06:
-            ax.text(pw / 2, i, f"{pw:.2f}", ha="center", va="center",
-                    fontsize=8, color="white")
+            ax.text(
+                pw / 2,
+                i,
+                f"{pw:.2f}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white",
+            )
         if pe > 0.06:
-            ax.text(pw + pe / 2, i, f"{pe:.2f}", ha="center", va="center",
-                    fontsize=8, color="white")
+            ax.text(
+                pw + pe / 2,
+                i,
+                f"{pe:.2f}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white",
+            )
         if pr > 0.06:
-            ax.text(pw + pe + pr / 2, i, f"{pr:.2f}", ha="center", va="center",
-                    fontsize=8, color="white")
+            ax.text(
+                pw + pe + pr / 2,
+                i,
+                f"{pr:.2f}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white",
+            )
 
     ax.set_xlim(0, 1)
     ax.set_xlabel("Probability")

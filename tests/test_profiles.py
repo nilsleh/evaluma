@@ -42,9 +42,9 @@ def test_profiles_exact_breakpoints(bench):
     result = bench.performance_profiles()
     observed_taus = set(result.table["tau"].unique())
     for (model, dataset), expected_ratio in EXPECTED_RATIOS.items():
-        assert any(
-            abs(t - expected_ratio) < 1e-9 for t in observed_taus
-        ), f"ratio {expected_ratio:.4f} for ({model},{dataset}) missing from tau grid"
+        assert any(abs(t - expected_ratio) < 1e-9 for t in observed_taus), (
+            f"ratio {expected_ratio:.4f} for ({model},{dataset}) missing from tau grid"
+        )
 
 
 def test_profiles_table_schema(bench):
@@ -232,10 +232,13 @@ def test_profiles_all_perfect_fraction_one_at_tau_one():
 
 
 def test_profiles_aup_best_model_wins():
-    rows = (
-        [{"model": "Best", "dataset": f"d{i}", "metric": "acc", "score": 0.9} for i in range(1, 6)]
-        + [{"model": "Worse", "dataset": f"d{i}", "metric": "acc", "score": 0.5} for i in range(1, 6)]
-    )
+    rows = [
+        {"model": "Best", "dataset": f"d{i}", "metric": "acc", "score": 0.9}
+        for i in range(1, 6)
+    ] + [
+        {"model": "Worse", "dataset": f"d{i}", "metric": "acc", "score": 0.5}
+        for i in range(1, 6)
+    ]
     b = evaluma.load_df(
         pd.DataFrame(rows),
         model="model",

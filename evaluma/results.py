@@ -7,7 +7,7 @@ class AggregateResult:
 
     def __init__(self, table: pd.DataFrame):
         """Args:
-            table: DataFrame with columns ``model`` and ``score``.
+        table: DataFrame with columns ``model`` and ``score``.
         """
         self.table = table
 
@@ -36,8 +36,8 @@ class IQMResult:
 
     def __init__(self, table: pd.DataFrame):
         """Args:
-            table: DataFrame with columns ``model``, ``IQM``, ``CI_low``,
-                ``CI_high``.
+        table: DataFrame with columns ``model``, ``IQM``, ``CI_low``,
+            ``CI_high``.
         """
         self.table = table
 
@@ -70,10 +70,10 @@ class BayesianResult:
 
     def __init__(self, table: pd.DataFrame, reference=None):
         """Args:
-            table: DataFrame with columns ``model_a``, ``model_b``,
-                ``p_a_better``, ``p_equiv``, ``p_b_better``.
-            reference: Reference model name if the comparison was run in
-                reference mode; ``None`` for all-pairs mode.
+        table: DataFrame with columns ``model_a``, ``model_b``,
+            ``p_a_better``, ``p_equiv``, ``p_b_better``.
+        reference: Reference model name if the comparison was run in
+            reference mode; ``None`` for all-pairs mode.
         """
         self.table = table
         self.reference = reference
@@ -97,9 +97,7 @@ class BayesianResult:
         if self.reference is not None:
             from evaluma.plot import plot_bayesian_reference_bars
 
-            return plot_bayesian_reference_bars(
-                self.table, self.reference, title=title
-            )
+            return plot_bayesian_reference_bars(self.table, self.reference, title=title)
         from evaluma.plot import plot_bayesian_heatmap
 
         return plot_bayesian_heatmap(self.table, title=title)
@@ -110,10 +108,10 @@ class ProfileResult:
 
     def __init__(self, table: pd.DataFrame):
         """Args:
-            table: Long-format DataFrame with columns ``tau``, ``model``,
-                ``fraction_within_tau``. ``tau`` holds raw ratio values ≥ 1;
-                the plot renders on a native log₁₀(τ) axis. Use ``.aup`` for
-                the scalar Area Under the Profile summary.
+        table: Long-format DataFrame with columns ``tau``, ``model``,
+            ``fraction_within_tau``. ``tau`` holds raw ratio values ≥ 1;
+            the plot renders on a native log₁₀(τ) axis. Use ``.aup`` for
+            the scalar Area Under the Profile summary.
         """
         self.table = table
 
@@ -145,7 +143,9 @@ class ProfileResult:
             taus = sub["tau"].values
             fracs = sub["fraction_within_tau"].values
             log_taus = np.log10(taus)
-            aup_values[model] = float(np.sum((log_taus[1:] - log_taus[:-1]) * fracs[:-1]))
+            aup_values[model] = float(
+                np.sum((log_taus[1:] - log_taus[:-1]) * fracs[:-1])
+            )
         return pd.Series(aup_values)
 
     def plot(self, figsize=None, model_colors=None, title=None, ax=None):

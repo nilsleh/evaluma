@@ -83,9 +83,9 @@ class Benchmark:
         """
         raw_runs = None
         if self._raw_runs is not None:
-            raw_runs = self._raw_runs[
-                self._raw_runs["model"].isin(models)
-            ].reset_index(drop=True)
+            raw_runs = self._raw_runs[self._raw_runs["model"].isin(models)].reset_index(
+                drop=True
+            )
         return self._new(self._raw.loc[models], raw_runs=raw_runs)
 
     def select_datasets(self, datasets):

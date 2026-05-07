@@ -79,7 +79,8 @@ def load_df(
     ):
         raise ValueError(
             "metric_type_bounds cannot be combined with norm_ref_low or norm_ref_high. "
-            "Use metric_type_bounds to specify all bounds, or use norm_ref_low/norm_ref_high."
+            "Use metric_type_bounds to specify all bounds, "
+            "or use norm_ref_low/norm_ref_high."
         )
 
     df = df.copy()
@@ -204,11 +205,12 @@ def _resolve_metric_type_bounds(
         metric_type_bounds: Dict mapping metric names → ``(low, high)`` tuples.
         dataset_metric_map: Dict mapping dataset names → metric name strings.
         raw_matrix: Model × dataset score DataFrame (used to resolve model-name bounds).
-        metric_direction_override: Optional dict mapping dataset names → ``"min"``/``"max"``;
-            these entries override registry-inferred directions.
+        metric_direction_override: Optional dict mapping dataset names →
+            ``"min"``/``"max"``; these entries override registry-inferred directions.
 
     Returns:
-        tuple: ``(norm_ref_low, norm_ref_high, metric_direction)`` where the first two are
+        tuple: ``(norm_ref_low, norm_ref_high, metric_direction)`` where the first
+        two are
         ``pd.Series`` keyed by dataset and the last is a dict (or ``None`` if empty).
     """
     from evaluma.metric_registry import get_direction, get_natural_bounds
@@ -241,7 +243,8 @@ def _resolve_metric_type_bounds(
             if nat_high is None:
                 raise ValueError(
                     f"Metric '{metric_name}' on dataset '{dataset}' has no natural "
-                    f"upper bound: add '{metric_lower}' to metric_type_bounds in your config."
+                    f"upper bound: add '{metric_lower}' to metric_type_bounds "
+                    f"in your config."
                 )
             low_dict[dataset] = nat_low
             high_dict[dataset] = nat_high

@@ -4,7 +4,17 @@ from evaluma.metric_registry import KNOWN_METRICS, get_direction, get_natural_bo
 
 
 def test_known_max_metrics():
-    for name in ("accuracy", "iou", "f1", "auc", "ap", "map", "precision", "recall", "r2"):
+    for name in (
+        "accuracy",
+        "iou",
+        "f1",
+        "auc",
+        "ap",
+        "map",
+        "precision",
+        "recall",
+        "r2",
+    ):
         assert get_direction(name) == "max"
         low, high = get_natural_bounds(name)
         assert low == 0.0
