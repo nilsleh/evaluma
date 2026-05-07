@@ -1,0 +1,12 @@
+model,dataset,metric,score
+A,d1,acc,0.9
+A,d2,acc,0.8
+A,d3,acc,0.7
+A,d4,acc,0.6
+B,d1,acc,0.5
+B,d2,acc,0.6
+B,d3,acc,0.4
+B,d4,acc,0.5
+C,d1,acc,0.2
+C,d2,acc,0.3
+C,d3,acc,0.25

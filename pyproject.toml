@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evaluma"
+dynamic = ["version"]
+description = "Holistic ML benchmark ranking — IQM, Bayesian pairwise, and Dolan-Moré performance profiles"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache 2.0" }
+authors = [
+  { name = "Nils Lehmann", email = "nils.lehmann24@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "License :: OSI Approved :: Apache 2.0",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "baycomp",
+    "matplotlib",
+    "pandas",
+    "click",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "ruff", "ty"]
+    docs = [
+        "sphinx>=7.0",
+        "sphinx-book-theme",
+        "myst-nb",
+        "sphinx-autoapi",
+        "sphinx-design",
+        "baycomp",
+        "mpltern",
+        "matplotlib",
+        "jupytext",
+        "ipykernel",
+    ]
+
+[project.urls]
+Homepage = "https://github.com/nilsleh/evaluma"
+Repository = "https://github.com/nilsleh/evaluma"
+Documentation = "https://nilsleh.github.io/evaluma"
+
+[project.scripts]
+evaluma = "evaluma.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["evaluma*"]
+
+[tool.setuptools_scm]
+write_to = "evaluma/_version.py"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:matplotlib",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ty.src]
+include = ["evaluma", "tests"]
