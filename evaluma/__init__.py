@@ -2,6 +2,7 @@ import pandas as pd
 
 from evaluma._version import __version__  # noqa: F401
 from evaluma.benchmark import Benchmark  # noqa: F401
+from evaluma.results import FrequentistResult  # noqa: F401
 
 
 def load_df(
@@ -93,18 +94,17 @@ def load_df(
     if (metrics_per_dataset > 1).any():
         raise ValueError("more than one metric found per (model, dataset) cell")
 
-    check_df = df.drop_duplicates(subset=["model", "dataset"])
-    pivot = check_df.pivot(index="model", columns="dataset", values="score")
-    missing = pivot.isna()
-    if missing.to_numpy().any():
+    counts = df.groupby(["model", "dataset"])["score"].count().unstack(fill_value=0)
+    missing_mask = counts == 0
+    if missing_mask.to_numpy().any():
         missing_cells = [
             (m, d)
-            for m in pivot.index
-            for d in pivot.columns
-            if pd.isna(pivot.loc[m, d])
+            for m in counts.index
+            for d in counts.columns
+            if counts.loc[m, d] == 0
         ]
         if drop_incomplete:
-            complete_models = pivot.index[~missing.any(axis=1)]
+            complete_models = counts.index[~missing_mask.any(axis=1)]
             df = df[df["model"].isin(complete_models)].reset_index(drop=True)
         else:
             cell_str = ", ".join(f"({m}, {d})" for m, d in missing_cells)
@@ -250,6 +250,23 @@ def _resolve_metric_type_bounds(
             high_dict[dataset] = nat_high
             direction_dict[dataset] = direction
 
+    for dataset, override_dir in (metric_direction_override or {}).items():
+        metric_name = dataset_metric_map.get(dataset)
+        if metric_name is not None:
+            try:
+                registry_dir = get_direction(metric_name.lower())
+            except ValueError:
+                registry_dir = None
+            if registry_dir is not None and registry_dir != override_dir:
+                import warnings
+
+                warnings.warn(
+                    f"metric_direction override for dataset '{dataset}' is "
+                    f"'{override_dir}' but the registry says '{registry_dir}' "
+                    f"for metric '{metric_name}'. The override will be used.",
+                    UserWarning,
+                    stacklevel=3,
+                )
     direction_dict.update(metric_direction_override or {})
     return (
         pd.Series(low_dict),

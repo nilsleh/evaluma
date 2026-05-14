@@ -166,6 +166,7 @@ def report(
     _save(bench.aggregate_ranking(), "aggregate_ranking", output_dir)
     _save(bench.bayesian_comparison(), "bayesian_comparison", output_dir)
     _save(bench.performance_profiles(), "performance_profiles", output_dir)
+    _save(bench.frequentist_comparison(), "frequentist_comparison", output_dir)
 
 
 @main.command()
@@ -254,6 +255,50 @@ def compare(
         output_dir,
     )
     _save(bench.bayesian_comparison(), "bayesian_comparison", output_dir)
+
+
+@main.command()
+@_common_options
+@click.option(
+    "--reference",
+    default=None,
+    help="Reference model for one-vs-all comparison.",
+)
+@click.option(
+    "--alpha",
+    default=0.05,
+    show_default=True,
+    type=float,
+    help="Significance level for the significant column.",
+)
+def frequentist(
+    csv_path,
+    model,
+    dataset,
+    metric,
+    score,
+    config_path,
+    metric_direction,
+    output_dir,
+    reference,
+    alpha,
+):
+    """Compute Friedman + Nemenyi (all-pairs) or Wilcoxon + Holm (reference) comparison."""
+    bench = _load_bench(
+        csv_path,
+        model,
+        dataset,
+        metric,
+        score,
+        config_path,
+        metric_direction,
+        output_dir,
+    )
+    _save(
+        bench.frequentist_comparison(reference=reference, alpha=alpha),
+        "frequentist_comparison",
+        output_dir,
+    )
 
 
 @main.command()

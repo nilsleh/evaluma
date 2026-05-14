@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy.stats import trim_mean
@@ -53,6 +55,19 @@ def compute_iqm(raw_runs, norm_bounds, n_bootstrap=1000, random_state=None):
             else:
                 norm = (scores - lo) / (hi - lo)
             per_dataset[m].append(norm)
+
+    # Warn if datasets have unequal seed counts — the flat concatenation then
+    # weights datasets by seed count rather than equally (Agarwal et al. 2021
+    # assume equal seeds per dataset).
+    seed_counts = [len(scores) for scores in per_dataset[models[0]]]
+    if len(set(seed_counts)) > 1:
+        warnings.warn(
+            f"Datasets have unequal seed counts {seed_counts}; "
+            "the IQM flat-concatenation weights datasets by seed count. "
+            "Agarwal et al. 2021 assume equal seeds per dataset.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Point estimates: flat-array IQM
     iqms_arr = np.array(

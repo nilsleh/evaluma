@@ -157,6 +157,14 @@ class Benchmark:
 
         Works on any benchmark regardless of whether seed data is present.
 
+        .. note::
+            This is a **descriptive point estimate only** (no CI). The
+            trimmed-mean variant trims across datasets, not across seeds; with
+            fewer than ~10 datasets the 25% trim is aggressive (e.g. 5
+            datasets → only 3 contribute). Treat results as exploratory. For a
+            statistically grounded ranking with uncertainty, use
+            ``iqm_ranking()`` (requires multiple seeds).
+
         Args:
             agg: Aggregation mode — ``"trimmed_mean"`` (default), ``"mean"``,
                 or ``"median"``.
@@ -177,7 +185,9 @@ class Benchmark:
         """Compute pairwise Bayesian comparisons via signed-rank test.
 
         Args:
-            rope: Region of practical equivalence half-width.
+            rope: Region of practical equivalence half-width **in normalized
+                score space (0–1)**. Differences smaller than ``rope`` are
+                treated as practically equivalent.
             reference: If given, only compare each other model against this
                 one.
             pairs: Explicit list of ``(model_a, model_b)`` pairs to test.
@@ -197,8 +207,40 @@ class Benchmark:
             random_state=random_state,
         )
 
+    def frequentist_comparison(self, reference=None, alpha=0.05):
+        """Compute frequentist model comparisons.
+
+        All-pairs mode follows the Demšar (2006) / autorank Friedman + Nemenyi
+        workflow. Reference mode is an evaluma extension: pairwise Wilcoxon
+        signed-rank tests against a named baseline with Holm correction.
+
+        Runs a Friedman omnibus test first, then either Nemenyi post-hoc
+        (all-pairs mode) or Wilcoxon + Holm correction (reference mode).
+
+        Args:
+            reference: If given, only compare each other model against this one
+                using Wilcoxon + Holm. ``None`` triggers all-pairs Nemenyi mode.
+            alpha: Significance level for the ``significant`` column (default 0.05).
+
+        Returns:
+            FrequentistResult: Result with ``.table`` and ``.plot()``.
+
+        Raises:
+            ValueError: If fewer than 5 datasets are present.
+
+        References:
+            Demšar, J. (2006). Statistical Comparisons of Classifiers over
+            Multiple Data Sets. *JMLR*, 7, 1–30.
+        """
+        from evaluma.methods.frequentist import compute_frequentist
+
+        return compute_frequentist(self.scores_, reference=reference, alpha=alpha)
+
     def performance_profiles(self):
         """Compute Dolan-Moré performance profiles.
+
+        Profiles are computed on the raw (un-normalized) score matrix. All raw
+        values must be strictly positive; see ``Raises``.
 
         Returns:
             ProfileResult: Result with ``.table`` and ``.plot()``.

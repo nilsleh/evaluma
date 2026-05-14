@@ -388,6 +388,8 @@ One dataset — `biomassters` — uses RMSE (lower is better). Passing `metric_d
 
 Plotting all 14 profile curves at once produces an unreadable chart. We use a trimmed-mean aggregate ranking to identify the top performers, then select one representative per model family.
 
+We use `aggregate_ranking()` here as a quick exploratory filter only — it is a point estimate and should not be treated as a definitive ranking.
+
 ```{code-cell} python
 agg = bench.aggregate_ranking()
 agg.table

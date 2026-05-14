@@ -28,6 +28,7 @@ dependencies = [
     "pandas",
     "click",
     "pyyaml",
+    "scikit-posthocs",
 ]
 
 [project.optional-dependencies]

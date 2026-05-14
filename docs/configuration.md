@@ -30,7 +30,9 @@ result = bench.aggregate_ranking(agg="trimmed_mean")
 result.plot()
 ```
 
-This returns a point estimate with no confidence interval. The [IQM ranking tutorial](tutorials/iqm_ranking) covers both methods in depth.
+This returns a point estimate with no confidence interval. Note: `aggregate_ranking()` is a descriptive point estimate — treat it as an exploratory summary. With fewer than ~10 datasets the 25% trim discards a large fraction of your benchmark. If multiple seeds are available, prefer `iqm_ranking()` for a statistically grounded result.
+
+The [IQM ranking tutorial](tutorials/iqm_ranking) covers both methods in depth.
 
 ---
 

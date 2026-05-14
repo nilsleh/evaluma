@@ -4,24 +4,26 @@ from click.testing import CliRunner
 
 from evaluma.cli import main
 
+_DATASETS = ["d1", "d2", "d3", "d4", "d5"]
+
 SCORES_ROWS = [
     {"model": m, "dataset": d, "metric": "acc", "score": s}
     for m, scores in [
-        ("A", [0.9, 0.8, 0.7, 0.6]),
-        ("B", [0.5, 0.6, 0.4, 0.5]),
-        ("C", [0.2, 0.3, 0.25, 0.35]),
+        ("A", [0.9, 0.8, 0.7, 0.6, 0.85]),
+        ("B", [0.5, 0.6, 0.4, 0.5, 0.55]),
+        ("C", [0.2, 0.3, 0.25, 0.35, 0.22]),
     ]
-    for d, s in zip(["d1", "d2", "d3", "d4"], scores)
+    for d, s in zip(_DATASETS, scores)
 ]
 
 SEEDED_ROWS = [
     {"model": m, "dataset": d, "metric": "acc", "score": s + offset, "seed": seed}
     for m, scores in [
-        ("A", [0.9, 0.8, 0.7, 0.6]),
-        ("B", [0.5, 0.6, 0.4, 0.5]),
-        ("C", [0.2, 0.3, 0.25, 0.35]),
+        ("A", [0.9, 0.8, 0.7, 0.6, 0.85]),
+        ("B", [0.5, 0.6, 0.4, 0.5, 0.55]),
+        ("C", [0.2, 0.3, 0.25, 0.35, 0.22]),
     ]
-    for d, s in zip(["d1", "d2", "d3", "d4"], scores)
+    for d, s in zip(_DATASETS, scores)
     for seed, offset in enumerate([-0.05, 0.0, 0.05], 1)
 ]
 
@@ -68,6 +70,8 @@ def test_report_writes_six_files(tmp_path):
         "bayesian_comparison.png",
         "performance_profiles.csv",
         "performance_profiles.png",
+        "frequentist_comparison.csv",
+        "frequentist_comparison.png",
     ]:
         assert (out / name).exists(), f"Missing: {name}"
 

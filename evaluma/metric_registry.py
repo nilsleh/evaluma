@@ -12,7 +12,7 @@ KNOWN_METRICS = {
     "map": ("max", (0.0, 1.0)),
     "precision": ("max", (0.0, 1.0)),
     "recall": ("max", (0.0, 1.0)),
-    "r2": ("max", (0.0, 1.0)),
+    "r2": ("max", (0.0, None)),
     "rmse": ("min", (0.0, None)),
     "mae": ("min", (0.0, None)),
     "mse": ("min", (0.0, None)),

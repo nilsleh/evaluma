@@ -12,6 +12,14 @@ def compute_aggregate(
 ) -> AggregateResult:
     """Compute a point-estimate descriptive ranking from a normalized score matrix.
 
+    .. note::
+        This is a **descriptive point estimate only** (no CI). The
+        trimmed-mean variant trims across datasets, not across seeds; with
+        fewer than ~10 datasets the 25% trim is aggressive (e.g. 5 datasets
+        → only 3 contribute). Treat results as exploratory. For a
+        statistically grounded ranking with uncertainty, use
+        :func:`evaluma.methods.iqm.compute_iqm` (requires multiple seeds).
+
     Args:
         scores_matrix: Normalized model × dataset score matrix.
         agg: Aggregation mode — one of ``"trimmed_mean"``, ``"mean"``,

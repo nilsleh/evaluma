@@ -29,7 +29,7 @@ def normalize(matrix, *, norm_ref_low=None, norm_ref_high=None, metric_direction
     """
     mat = matrix.copy().astype(float)
 
-    emit_warning = norm_ref_low is None and norm_ref_high is None
+    emit_warning = norm_ref_low is None or norm_ref_high is None
 
     # Resolve bounds on the original matrix before any direction inversion.
     low = _resolve_bound(mat, norm_ref_low, use_min=True)
@@ -79,6 +79,11 @@ def _resolve_bound(mat, bound, use_min):
             raise ValueError(f"Reference model '{bound}' not found in score matrix")
         return mat.loc[bound]
     if isinstance(bound, dict):
+        missing = [col for col in mat.columns if col not in bound]
+        if missing:
+            raise ValueError(
+                f"norm_ref bound dict is missing entries for datasets: {missing}"
+            )
         return pd.Series({col: bound[col] for col in mat.columns})
     # Scalar
     return pd.Series({col: float(bound) for col in mat.columns})

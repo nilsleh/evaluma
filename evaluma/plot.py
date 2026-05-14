@@ -219,6 +219,181 @@ def plot_bayesian_reference_bars(
     return fig
 
 
+def plot_cd_diagram(
+    avg_ranks: pd.Series,
+    cd: float,
+    *,
+    title=None,
+    figsize=None,
+):
+    """Render a Critical Difference diagram (Demšar 2006).
+
+    Models are placed on a horizontal axis by average rank (rank 1 = best on the
+    left). Thick horizontal bars connect cliques of models whose rank gap does not
+    exceed the Nemenyi CD scalar. A CD bracket in the top-right corner shows the
+    critical difference visually.
+
+    Args:
+        avg_ranks: Series mapping model names to average rank (lower = better),
+            as produced by :func:`~evaluma.methods.frequentist.compute_frequentist`.
+        cd: Nemenyi critical difference scalar.
+        title: Optional axes title.
+        figsize: Figure size ``(width, height)`` in inches.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    models_sorted = avg_ranks.sort_values().index.tolist()
+    n = len(models_sorted)
+    ranks_sorted = avg_ranks[models_sorted]
+
+    # Greedy forward scan clique detection (autorank style)
+    groups = []
+    cur_max_j = -1
+    for i in range(n):
+        max_j = None
+        for j in range(i + 1, n):
+            if ranks_sorted.iloc[j] - ranks_sorted.iloc[i] <= cd:
+                max_j = j
+        if max_j is not None and max_j > cur_max_j:
+            cur_max_j = max_j
+            groups.append((i, max_j))
+
+    n_bars = len(groups)
+    fig_w = max(6.0, n * 1.5)
+    fig_h = max(3.0, 2.0 + n_bars * 0.4)
+    fig, ax = plt.subplots(figsize=figsize or (fig_w, fig_h))
+
+    rank_vals = avg_ranks.values
+    r_min_data = float(rank_vals.min())
+    r_max_data = float(rank_vals.max())
+
+    # CD bracket anchored at the right end; expand xlim to fit it
+    cd_right = r_max_data + 0.35
+    cd_left = cd_right - cd
+    r_left = min(r_min_data - 0.5, cd_left - 0.1)
+    r_right = max(r_max_data + 0.5, cd_right + 0.1)
+    ax.set_xlim(r_left, r_right)
+
+    ax.axhline(0.0, color="black", lw=1.5, zorder=1)
+
+    for i, model in enumerate(models_sorted):
+        r = float(avg_ranks[model])
+        ax.plot(r, 0.0, "o", color="black", ms=5, zorder=3)
+        if i % 2 == 0:
+            y_label = -0.15
+        else:
+            y_label = -0.50
+            ax.plot([r, r], [-0.05, -0.43], color="black", lw=0.8, zorder=1)
+        ax.text(
+            r,
+            y_label,
+            f"{model}\n({r:.2f})",
+            ha="right",
+            va="top",
+            fontsize=9,
+            rotation=30,
+        )
+
+    for bar_i, (start, end) in enumerate(groups):
+        r0 = float(avg_ranks[models_sorted[start]])
+        r1 = float(avg_ranks[models_sorted[end]])
+        y_bar = 0.35 + bar_i * 0.3
+        ax.plot(
+            [r0, r1],
+            [y_bar, y_bar],
+            color="black",
+            lw=4,
+            solid_capstyle="butt",
+            zorder=2,
+        )
+
+    y_top = (0.35 + n_bars * 0.3 + 0.2) if n_bars else 0.5
+
+    # CD bracket in top-right corner
+    y_bracket = y_top + 0.12
+    cd_tick_h = 0.06
+    ax.plot([cd_left, cd_right], [y_bracket, y_bracket], color="black", lw=1.5)
+    ax.plot(
+        [cd_left, cd_left],
+        [y_bracket - cd_tick_h, y_bracket + cd_tick_h],
+        color="black",
+        lw=1.5,
+    )
+    ax.plot(
+        [cd_right, cd_right],
+        [y_bracket - cd_tick_h, y_bracket + cd_tick_h],
+        color="black",
+        lw=1.5,
+    )
+    ax.text(
+        (cd_left + cd_right) / 2,
+        y_bracket + cd_tick_h + 0.02,
+        f"CD = {cd:.2f}",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+    )
+
+    ax.set_xlabel("Average rank (lower is better)")
+    ax.set_ylim(-1.5, y_bracket + 0.25)
+    ax.yaxis.set_visible(False)
+    for spine in ["left", "right", "top"]:
+        ax.spines[spine].set_visible(False)
+
+    if title:  # pragma: no cover
+        ax.set_title(title)
+
+    return fig
+
+
+def plot_frequentist_reference_bars(
+    table: pd.DataFrame,
+    reference: str,
+    alpha: float,
+    *,
+    title=None,
+    figsize=None,
+):
+    """Render frequentist reference-mode results as horizontal bars.
+
+    Each bar shows the Holm-corrected p-value for a model vs the reference.
+    A vertical dashed line marks the significance threshold.
+
+    Args:
+        table: DataFrame with columns ``model_a``, ``model_b``,
+            ``p_value_corrected``, ``significant``, as produced by
+            :func:`~evaluma.methods.frequentist.compute_frequentist` in
+            reference mode.
+        reference: Name of the reference model.
+        alpha: Significance threshold; used to position the dashed line.
+        title: Optional figure title.
+        figsize: Figure size ``(width, height)`` in inches.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    df = table[table["model_a"] == reference].copy()
+    df = df.sort_values("p_value_corrected", ascending=True)
+
+    models = df["model_b"].tolist()
+    p_corr = df["p_value_corrected"].values
+    colors = ["#DC2626" if sig else "#9CA3AF" for sig in df["significant"]]
+
+    n = len(models)
+    fig, ax = plt.subplots(figsize=figsize or (8, max(3, n * 0.5)))
+
+    ax.barh(models, p_corr, color=colors)
+    ax.axvline(x=alpha, color="black", linestyle="--", lw=1.2)
+    ax.set_xlabel("Holm-corrected p-value")
+    ax.set_xlim(0, max(1.0, float(p_corr.max()) * 1.05))
+
+    if title:  # pragma: no cover
+        ax.set_title(title)
+
+    return fig
+
+
 def plot_performance_profiles(
     table: pd.DataFrame, *, figsize=None, model_colors=None, title=None, ax=None
 ):

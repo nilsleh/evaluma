@@ -22,8 +22,9 @@ def compute_bayesian(
 
     Args:
         scores_matrix: Normalized model × dataset score matrix.
-        rope: Region of practical equivalence half-width. Differences
-            smaller than ``rope`` are treated as ties.
+        rope: Region of practical equivalence half-width **in normalized
+            score space (0–1)**. Differences smaller than ``rope`` are
+            treated as practically equivalent.
         reference: If provided, only compare every other model against this
             reference model.
         pairs: Explicit list of ``(model_a, model_b)`` pairs to test.

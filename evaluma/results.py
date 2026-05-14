@@ -103,6 +103,69 @@ class BayesianResult:
         return plot_bayesian_heatmap(self.table, title=title)
 
 
+class FrequentistResult:
+    """Result of :meth:`~evaluma.benchmark.Benchmark.frequentist_comparison`."""
+
+    def __init__(
+        self,
+        table: pd.DataFrame,
+        avg_ranks: pd.Series,
+        friedman_statistic: float,
+        friedman_p_value: float,
+        reference=None,
+        alpha=0.05,
+        cd=None,
+    ):
+        """Args:
+        table: DataFrame schema depends on mode. All-pairs: ``model_a``,
+            ``model_b``, ``rank_diff``, ``p_value``, ``significant``.
+            Reference: ``model_a``, ``model_b``, ``w_statistic``, ``p_value``,
+            ``p_value_corrected``, ``significant``.
+        avg_ranks: Series mapping model name to average rank across datasets
+            (rank 1 = best).
+        friedman_statistic: Friedman chi-squared test statistic.
+        friedman_p_value: Friedman test p-value.
+        reference: Reference model name if the comparison was run in reference
+            mode; ``None`` for all-pairs mode.
+        alpha: Significance level used for the ``significant`` column.
+        cd: Nemenyi critical difference scalar; ``None`` in reference mode.
+        """
+        self.table = table
+        self.avg_ranks = avg_ranks
+        self.friedman_statistic = friedman_statistic
+        self.friedman_p_value = friedman_p_value
+        self.reference = reference
+        self.alpha = alpha
+        self.cd = cd
+
+    def plot(self, title=None):
+        """Render the comparison result.
+
+        In all-pairs mode renders a CD diagram (Demšar 2006) with the Nemenyi
+        critical difference bracket. In reference mode renders a horizontal bar
+        chart of Holm-corrected p-values.
+
+        Args:
+            title: Optional figure title.
+
+        Returns:
+            matplotlib.figure.Figure: The rendered figure.
+
+        Example:
+            >>> result = bench.frequentist_comparison()
+            >>> fig = result.plot()
+        """
+        if self.reference is not None:
+            from evaluma.plot import plot_frequentist_reference_bars
+
+            return plot_frequentist_reference_bars(
+                self.table, self.reference, self.alpha, title=title
+            )
+        from evaluma.plot import plot_cd_diagram
+
+        return plot_cd_diagram(self.avg_ranks, self.cd, title=title)
+
+
 class ProfileResult:
     """Result of :meth:`~evaluma.benchmark.Benchmark.performance_profiles`."""
 

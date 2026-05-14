@@ -13,12 +13,19 @@ def test_known_max_metrics():
         "map",
         "precision",
         "recall",
-        "r2",
     ):
         assert get_direction(name) == "max"
         low, high = get_natural_bounds(name)
         assert low == 0.0
         assert high == 1.0
+
+
+def test_r2_bounds():
+    # R² ∈ (−∞, 1]: no natural lower bound, so users must supply one.
+    assert get_direction("r2") == "max"
+    low, high = get_natural_bounds("r2")
+    assert low == 0.0
+    assert high is None
 
 
 def test_known_min_metrics():
