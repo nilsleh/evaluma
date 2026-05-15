@@ -91,7 +91,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-Every model has datasets where it looks strong and others where it drops. Now watch what happens when we collapse this variation to a single number per model:
+Every model has datasets where it looks strong and others where it drops. Collapsing this variation to a single number per model shows how much information is lost:
 
 ```{code-cell} python
 bench_demo = evaluma.load_df(
@@ -102,7 +102,7 @@ bench_demo = evaluma.load_df(
 bench_demo.aggregate_ranking(agg="mean").table
 ```
 
-Model-C ranks second and Model-B ranks third — separated by a mean-score gap of 0.011. One percentage point determines which name appears above which in the table. Whether that gap reflects a genuine difference or just sampling noise is exactly what the ranking cannot say.
+Model-C ranks second and Model-B ranks third, separated by a mean-score gap of 0.011. Whether that gap reflects a genuine difference or sampling noise is exactly what the ranking cannot say.
 
 A ranking answers one question: who scored highest on average. It cannot answer:
 
@@ -148,7 +148,7 @@ results_df = pd.DataFrame(pair_results)
 results_df
 ```
 
-Two results stand out. **Model-B vs Model-C** is non-significant with a tiny effect — a result consistent with the test's null, since the mean difference barely exceeds zero. **Model-A vs Model-B** crosses the significance threshold with an effect of ~0.17, but whether a 17-percentage-point gap matters depends on the application. The test tells you the gap is unlikely to be zero; it says nothing about whether it is large enough to act on.
+Two results stand out. Model-B vs Model-C is non-significant with a tiny effect, consistent with the test's null since the mean difference barely exceeds zero. Model-A vs Model-B crosses the significance threshold with an effect of ~0.17, but whether a 17-percentage-point gap matters depends on the application. The test tells you the gap is unlikely to be zero; it says nothing about whether it is large enough to act on.
 
 :::{important}
 A p-value answers: *"If there were no difference, how surprising would this data be?"* For the Wilcoxon signed-rank test, "no difference" means the distribution of paired score differences is symmetric around zero — equivalently, the median difference is zero.
@@ -204,7 +204,7 @@ print(f"  P(equivalent)    = {p_eq:.3f}")
 print(f"  P(C better)      = {p_c_wins:.3f}")
 ```
 
-The ranking put C ahead of B. The posterior says: *we are not confident enough to make that call.* Substantial probability lands on equivalence, and neither side dominates.
+The ranking put C ahead of B. The posterior assigns substantial probability to equivalence, with neither side dominant.
 
 ```{code-cell} python
 fig, ax = plt.subplots(figsize=(7, 1.8))
@@ -226,7 +226,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-The stacked bar splits the probability budget across three outcomes. With ten datasets and a 0.011-point mean gap, neither side earns a majority — that is the honest answer the data support.
+The stacked bar splits the probability budget across three outcomes. With ten datasets and a 0.011-point mean gap, neither side earns a majority.
 
 (three-patterns-in-practice)=
 ## 4. Three Patterns in Practice
@@ -239,7 +239,7 @@ In practice, Bayesian comparison results fall into three characteristic patterns
 | **Borderline** | $p_A \approx 0.6,\; p_= \approx 0.3$ | A has a slight edge but outcomes vary per dataset |
 | **Tied** | $p_= > 0.95$ | A and B are practically interchangeable |
 
-These three patterns are illustrative points on a continuum, not exhaustive categories with hard boundaries — the thresholds (p_A > 0.95 etc.) are rough guides, not precise cutoffs.
+These three patterns are illustrative points on a continuum, not exhaustive categories with hard boundaries: the thresholds (p_A > 0.95 etc.) are rough guides, not precise cutoffs.
 
 :::{margin}
 **Dominant:** A wins on nearly every dataset by a margin that exceeds the ROPE. The
@@ -312,7 +312,7 @@ for label, result in [("Dominant", r_dom), ("Borderline", r_bord), ("Tied", r_ti
     )
 ```
 
-Already the numbers tell each story: the Dominant case concentrates nearly all probability on A winning; the Tied case concentrates it on equivalence. The Borderline case is the one to scrutinise — A appears to lead, but the probability is spread, not concentrated. The bar charts below show the full probability budget for each pattern side-by-side:
+The Dominant case concentrates nearly all probability on A winning; the Tied case concentrates it on equivalence. The Borderline case deserves closer attention: A appears to lead, but the probability is spread across all three regions. The bar charts below show the full probability budget for each pattern side-by-side:
 
 ```{code-cell} python
 patterns = [
@@ -350,7 +350,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-Each bar tells a different story. The Dominant bar is almost entirely blue — the posterior is nearly certain A wins, and rightly so given A scores 0.78–0.92 while B scores 0.15–0.35. The Tied bar is almost entirely grey — the differences are so small the ROPE absorbs them entirely. The Borderline bar is the interesting one: A has a plurality, but probability spreads across all three regions. That spread is not a flaw — it is the honest answer given that A has only a 3-percentage-point mean advantage with substantial per-dataset variance. A mean-score ranking would place A first just as confidently in all three cases; the posterior distinguishes them.
+The Dominant bar is almost entirely blue: the posterior is nearly certain A wins, given A scores 0.78–0.92 while B scores 0.15–0.35. The Tied bar is almost entirely grey; the differences are so small the ROPE absorbs them entirely. The Borderline bar is the notable one: A has a plurality, but probability spreads across all three regions. A mean-score ranking would place A first just as confidently in all three cases; the posterior distinguishes them.
 
 (choosing-the-rope)=
 ## 5. Choosing the ROPE
@@ -361,16 +361,16 @@ As ROPE grows, probability mass migrates from p_A and p_B into p_=: at ROPE = 0,
 
 ### How to choose your ROPE
 
-**Step 1 — domain prior.** Ask: "Below what score gap would I call these models interchangeable in practice?" Use that as your ROPE. A robotics team deploying monthly might tolerate δ = 0.05; a medical-imaging system reviewed annually might require δ ≤ 0.01.
+Start with a domain prior: ask what score gap is meaningful for your purpose. Below that threshold, the two models are practically equivalent and the distinction is not worth making. For deployment decisions, this is the gap below which you would choose between models on other grounds — inference speed, memory footprint, interpretability. For leaderboard rankings, it is the gap below which two entries should be considered tied: on a benchmark with 10–20 tasks, a 0.01 normalized gap is often within the variance introduced by the specific choice of tasks, and ranking one model definitively above another on that basis alone is unreliable. A robotics team that retrains monthly can tolerate δ = 0.05; a medical-imaging benchmark with direct patient impact might require δ ≤ 0.01.
 
-**Step 2 — sensitivity check.** Run `bayesian_comparison` at three ROPE values: your chosen value, half of it, and double it. If p_A swings from > 0.9 to < 0.1 across those three runs, the data do not support a confident claim — report all three results rather than cherry-picking one.
+Then run a sensitivity check: repeat `bayesian_comparison` at your chosen value, half of it, and double it. If p_A swings from > 0.9 to < 0.1 across those three runs, the data do not support a confident claim — report all three results rather than cherry-picking one.
 
-**Step 3 — avoid ROPE = 0.** With zero ROPE the posterior concentrates all mass on a single outcome as the number of datasets grows, making results brittle even for trivial gaps. Use a small but positive value such as 0.005.
+Avoid ROPE = 0. With zero ROPE the posterior concentrates all mass on a single outcome as the number of datasets grows, making results brittle even for trivial gaps. Use a small but positive value such as 0.005.
 
 :::{note}
-**The key sentence:** p_A = 0.95 with ROPE = 0.01 means "there is a 95% posterior
-probability that A beats B by more than one percentage point." That sentence is precise
-and directly actionable. A p-value of 0.02 is not.
+p_A = 0.95 with ROPE = 0.01 means "there is a 95% posterior probability that A beats B
+by more than one percentage point." That sentence is precise and directly actionable,
+which a p-value is not.
 :::
 
 (geobench-real-world)=
@@ -426,7 +426,7 @@ negates that column before normalisation so all scores point in the same directi
 
 ### 6b. All-pairs comparison
 
-Use this to survey the full competitive landscape — which backbone is genuinely best, and which pairs are statistically indistinguishable?
+Use this to survey the full competitive landscape: which backbones are genuinely ahead, and which pairs are statistically indistinguishable.
 
 ```{code-cell} python
 result_all = bench.bayesian_comparison(rope=0.01, random_state=42)
@@ -437,7 +437,7 @@ plt.show()
 
 ### 6c. Focused comparison against a baseline
 
-As an alternative mode, you can explicitly compute probabilities against a chosen baseline. The result will be a bar chart that directly answers: which backbones genuinely outperforms the baseline (`resnet50` in this case), which are equivalent, and which fall behind?
+As an alternative mode, you can compute probabilities against a chosen baseline. The result is a bar chart showing which backbones genuinely outperform `resnet50`, which are equivalent, and which fall behind.
 
 ```{code-cell} python
 result = bench.bayesian_comparison(rope=0.01, reference="resnet50", random_state=42)
@@ -470,11 +470,7 @@ the same thing on every dataset.
 
 ## Summary
 
-- **Mean rankings** tell you who scored highest on average; they cannot tell you whether the gap is real or how confident you should be in the ordering.
-- **The Wilcoxon test** tells you whether a difference is statistically unlikely to be zero, but not how probable it is that one model genuinely outperforms another.
-- **Bayesian comparison** returns three probabilities — A wins, equivalent, B wins — that sum to 1 and directly answer the question practitioners actually ask.
-- **The ROPE** encodes the score gap below which two models are considered interchangeable. Always run a sensitivity check across at least three ROPE values before reporting a result.
-- **The three patterns** — Dominant, Borderline, Tied — give a fast interpretation framework for a continuum of results. Borderline results deserve the most scrutiny and benefit most from a sensitivity check.
+Mean rankings tell you who scored highest on average; they cannot tell you whether the gap is real or how confident you should be in the ordering. The Wilcoxon test tells you whether a difference is statistically unlikely to be zero, but not how probable it is that one model genuinely outperforms another. Bayesian comparison returns three probabilities — A wins, equivalent, B wins — that sum to 1 and directly answer the question practitioners actually ask. The ROPE encodes the score gap below which two models are considered interchangeable; always run a sensitivity check across at least three ROPE values before reporting a result. The three patterns — Dominant, Borderline, Tied — give a fast interpretation framework for a continuum of results; Borderline results deserve the most scrutiny and benefit most from a sensitivity check.
 
 ## References
 

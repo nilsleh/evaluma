@@ -12,22 +12,23 @@ kernelspec:
 
 # Frequentist Model Comparison: Friedman + Nemenyi / Wilcoxon + Holm
 
-You have trained four backbones on ten benchmark datasets and sorted the results by IQM score
+You have run a set of models across a benchmark and sorted the results by IQM score
 (see [IQM Tutorial](./iqm_ranking.md)). Some ranking gaps are wide; others are only a few
-percentage points. Before drawing conclusions you need to ask: which of these gaps can the
-data actually support?
+percentage points. However, before drawing conclusions you want to more carefully assess which
+observed gaps the data can actually support.
 
-The `frequentist_comparison()` method always starts with a **Friedman omnibus test** to
-check whether any difference exists, then applies the appropriate post-hoc test:
+`frequentist_comparison()` always starts with a **Friedman omnibus test** to check whether
+any difference exists, then applies the appropriate post-hoc test:
 
-- **All-pairs mode** (default): follows the Demšar (2006) / autorank Friedman + Nemenyi
-  workflow, producing a Critical Difference diagram.
-- **Reference mode** (`reference=`): an evaluma extension — pairwise Wilcoxon signed-rank
-  tests against a named baseline with Holm step-down correction.
+- All-pairs mode (default): the Demšar (2006) / autorank Friedman + Nemenyi workflow,
+  producing a Critical Difference diagram. Each model is ranked per dataset and the test
+  compares all pairs using those average ranks.
+- Reference mode (`reference=`): pairwise Wilcoxon signed-rank tests against a named
+  baseline with Holm step-down correction. Each model is compared to the baseline using
+  paired normalized score differences directly, not ranks.
 
 :::{note}
-This tutorial covers the frequentist approach. For a direct probability statement —
-"how likely is it that model A outperforms model B on a new task?" — see the
+This tutorial covers the frequentist approach. For a direct probability statement, "how likely is it that model A outperforms model B on a new task?", see the
 [Bayesian comparison tutorial](bayesian_comparison.md). For a comparison of both
 approaches, see [Frequentist vs Bayesian](frequentist_vs_bayesian.md).
 :::
@@ -45,13 +46,12 @@ import evaluma
 
 ## 1. The Demšar (2006) Protocol
 
-The key insight in Demšar (2006) is that comparing k > 2 models with pairwise tests directly
-inflates the false-positive rate. The correct procedure is:
-
-1. **Friedman test** (omnibus): Does any classifier differ from the others? This is a
-   non-parametric equivalent of repeated-measures ANOVA that operates on ranks.
-2. **Post-hoc test** (only if Friedman is significant, or with a warning): Find which
-   specific pairs differ.
+Comparing k > 2 models with pairwise tests directly inflates the false-positive rate. A false
+positive here means concluding that two models differ significantly when they do not — the more
+pairs you test, the more likely you are to find one that looks significant by chance alone. The
+standard correction is a two-step procedure: a Friedman omnibus test first checks whether any
+classifier differs from the others (a non-parametric equivalent of repeated-measures ANOVA that
+operates on ranks), and a post-hoc test then identifies which specific pairs differ.
 
 `evaluma` proceeds to post-hoc testing regardless of the Friedman result, issuing a
 `UserWarning` if the Friedman p-value is not below α so you are aware the omnibus test did
@@ -60,12 +60,12 @@ not support the direction.
 ### Why ranks in the all-pairs branch?
 
 Each dataset $i$ produces one score per model. Converting to **ranks** per dataset (rank 1 =
-highest score) removes scale and direction differences between tasks — a 0.78 accuracy and a
+highest score) removes scale and direction differences between tasks: a 0.78 accuracy and a
 0.78 Jaccard index become comparable once both are replaced by their within-dataset rank.
 
 The **average rank** of a model across N datasets is the primary summary statistic in the
 Demšar (2006) all-pairs workflow: a model that consistently ranks first has average rank 1.
-The reference-mode branch does not use average ranks — it tests paired normalized score
+The reference-mode branch does not use average ranks; it tests paired normalized score
 differences directly via Wilcoxon signed-rank.
 
 ## 2. Toy Example
@@ -120,13 +120,10 @@ plt.tight_layout()
 plt.show()
 ```
 
-**Model-A vs Model-B:** A consistent ~20-point lead on every dataset.
-
-**Model-C vs Model-D:** Means only 0.02 apart with high per-dataset variance — differences
-reverse direction freely.
-
-**Model-B vs Model-C/D:** A ~15-point mean advantage that is borderline, given the shared
-σ ≈ 0.10 noise.
+Model-A leads Model-B by roughly 20 points consistently across all datasets. Model-C and
+Model-D have means only 0.02 apart with high per-dataset variance, with differences reversing
+direction freely. Model-B holds a ~15-point mean advantage over Model-C and Model-D, though
+this is borderline given the shared σ ≈ 0.10 noise.
 
 ## 3. All-Pairs Mode: Friedman + Nemenyi
 
@@ -141,7 +138,7 @@ result.table
 
 The table has one row per pair. The `rank_diff` column is $|\bar{r}_A - \bar{r}_B|$
 where $\bar{r}$ is the average rank across datasets. The `p_value` comes from the
-Nemenyi test (already FWER-controlled — no additional correction applied).
+Nemenyi test, which is already FWER-controlled and requires no additional correction.
 
 | Column | Meaning |
 |---|---|
@@ -169,28 +166,19 @@ plt.tight_layout()
 plt.show()
 ```
 
-Three rules to read any CD diagram:
-
-**Left is better.** Models are placed on a horizontal axis by average rank (rank 1 =
-"scored highest on this dataset"). The leftmost model had the best average rank.
-
-**A bar marks a statistically indistinguishable group.** A thick horizontal bar
-connecting two or more models means their rank gap does not exceed the CD scalar — the data
-cannot confidently separate them.
-
-**No bar means a significant difference.** Models with no connecting bar are separated
-by more than the CD, and the Nemenyi p-value is below α.
-
-**The CD bracket (top-right)** shows what the critical difference looks like on the rank
-axis. Any two models whose distance on the axis is smaller than the bracket are not
-significantly different.
+Models are placed on a horizontal axis by average rank (rank 1 = best), so the leftmost model
+had the highest average rank. A thick horizontal bar connecting two or more models means their
+rank gap does not exceed the CD scalar; the data cannot confidently separate them. Models with
+no connecting bar are separated by more than the CD and the Nemenyi p-value is below α. The CD
+bracket in the top-right corner shows the critical difference on the rank axis: any two models
+closer than that bracket are not significantly different.
 
 ### What to look for
 
-Model-A (leftmost) is significantly better than Model-C and Model-D — those rank gaps (2.1
-and 2.2) exceed the CD (1.48). The gap between Model-A and Model-B (rank diff = 1.3) falls
-just below the CD, so they share a bar: the data cannot confidently separate them. A second
-bar connects Model-B, Model-C, and Model-D, where no gap reaches significance.
+Model-A (leftmost) is significantly better than Model-C and Model-D, with rank gaps of 2.1
+and 2.2 both exceeding the CD of 1.48. The gap between Model-A and Model-B (rank diff = 1.3)
+falls just below the CD, so they share a bar and the data cannot confidently separate them.
+A second bar connects Model-B, Model-C, and Model-D, where no gap reaches significance.
 
 :::{margin}
 A visible ranking gap is not the same as a statistically supported one. The CD diagram shows
@@ -224,7 +212,7 @@ print(f"CD (result) = {result.cd:.4f}")
 
 When the question is "which models genuinely improve over a specific baseline?" use
 `reference=`. Unlike the all-pairs branch, this mode tests paired normalized score
-differences directly via Wilcoxon signed-rank — not average ranks. It runs only $k - 1$
+differences directly via Wilcoxon signed-rank, not average ranks. It runs only $k - 1$
 pairwise tests against the reference, then applies Holm step-down correction to control the
 FWER across those tests.
 
@@ -315,26 +303,22 @@ plt.tight_layout()
 plt.show()
 ```
 
-The Holm correction here spans 13 tests ($k - 1$) rather than 91 ($k(k-1)/2$), giving each
-comparison more power.
+The Holm correction here spans 13 tests ($k - 1$) rather than 91 ($k(k-1)/2$). Because
+Holm's most stringent threshold is $\alpha / m$ where $m$ is the number of tests, fewer tests
+means a less severe correction: in reference mode the hardest hurdle is
+$\alpha/13 \approx 0.0038$, compared to $\alpha/91 \approx 0.00055$ in all-pairs mode, so
+each individual comparison needs a less extreme p-value to reach significance.
 
 ## Summary
 
-- **Always run Friedman first.** `frequentist_comparison()` does this automatically and warns
-  if the omnibus test is not significant.
-
-- **All-pairs mode uses Nemenyi**, which controls FWER across all pairs simultaneously. No
-  secondary correction is needed or applied.
-
-- **Reference mode uses Wilcoxon + Holm**. Fewer tests mean a weaker correction and higher
-  power per comparison. Use it when one specific baseline defines the question.
-
-- **The CD diagram is the standard visualization** for all-pairs results. Left is better;
-  bars mark indistinguishable groups; the CD bracket shows the critical difference in rank
-  units.
-
-- **`evaluma` normalizes scores to [0, 1] per dataset** before any statistical test, removing
-  scale and direction differences between metrics.
+`frequentist_comparison()` always runs a Friedman omnibus test first and warns if it is not
+significant. All-pairs mode uses Nemenyi, which controls FWER across all pairs simultaneously
+with no secondary correction needed. Reference mode uses Wilcoxon + Holm (fewer tests, a
+weaker correction, and higher power per comparison) and is the right choice when one specific
+baseline defines the question. The CD diagram is the standard visualization for all-pairs
+results: left is better, bars mark indistinguishable groups, and the CD bracket shows the
+critical difference in rank units. `evaluma` normalizes scores to [0, 1] per dataset before
+any statistical test, removing scale and direction differences between metrics.
 
 For a direct comparison of the frequentist and Bayesian approaches, see
 [Frequentist vs Bayesian](frequentist_vs_bayesian.md).

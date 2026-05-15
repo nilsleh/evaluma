@@ -12,7 +12,7 @@ kernelspec:
 
 # Performance Profiles
 
-You've trained two new model variants and run them across twelve benchmark datasets. Someone on your team opens the results spreadsheet and says: "Same mean score — they're tied, pick either one." You look at the per-dataset numbers and something feels off. Model-A dominates on a subset of the tasks and performs significantly worse the other; Model-B is solidly mediocre on every single task. The mean hides the entire story, but performance profiles can give you a more detailed picture.
+You have run a set of models across a benchmark and the aggregate scores look close. The mean treats models with identical averages as interchangeable, even when one dominates on half the tasks and fails on the other half while another is consistently mediocre. Performance profiles reveal that distribution of per-dataset performance, which a single aggregate summary does not capture.
 
 ```{code-cell} python
 import warnings
@@ -74,7 +74,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-The chart makes the difference obvious, where Specialist excels at half the tasks and fails the other half; Consistent delivers steady, middling performance everywhere. A deployment decision based on mean score alone treats these two models as interchangeable.
+The above chart illustrates this difference. While Specialist scores around 0.90 on six datasets and around 0.50 on the other six, Consistent sits near 0.70 across all twelve. The distributions are completely different, but the mean is identical.
 
 ```{code-cell} python
 pd.DataFrame({
@@ -87,7 +87,7 @@ pd.DataFrame({
 (profiles-win-rate)=
 ## 2. Win Rate: a Better Scalar, Still Incomplete
 
-Think of win rate as asking: on what fraction of datasets did this model score highest? It is a simple one-liner over the score matrix.
+Win rate is the fraction of datasets on which a model scores highest.
 
 ```{code-cell} python
 scores_matrix = np.array([specialist_scores, consistent_scores])  # (2, 12)
@@ -109,9 +109,9 @@ plt.tight_layout()
 plt.show()
 ```
 
-Another tie — 50-50. The six datasets where Specialist scores around 0.50 are exactly the six where Consistent scores 0.70, so Consistent wins those outright, and Specialist wins the other six. Mean score and win rate both declare a draw.
+Win rate is also tied at 0.50. The six datasets where Specialist scores around 0.50 are exactly the six where Consistent scores 0.70, so Consistent wins those outright and Specialist wins the other six. Mean score and win rate give the same result.
 
-Win rate is a better starting point than mean score in the general case, but it remains a single number: it does not say *how far* a model falls behind on the datasets it doesn't win. A model that loses by 0.001 and one that loses by 0.40 have identical win rates.
+Win rate offers a different angle on the same data: rather than averaging scores, it counts how often a model leads. But it remains a single number and does not capture how far a model falls behind on the datasets it doesn't win. A model that loses by 0.001 and one that loses by 0.40 have identical win rates.
 
 :::{margin}
 Win rate is the profile curve evaluated at exactly τ = 1. Performance profiles generalise win rate to all τ ≥ 1, replacing a single number with a complete picture.
@@ -122,15 +122,13 @@ Win rate is the profile curve evaluated at exactly τ = 1. Performance profiles 
 
 ### The key idea
 
-Here is the question performance profiles answer: *for a given tolerance τ, what fraction of datasets does a model solve within that tolerance of the best score?*
+Performance profiles answer the following question: for a given tolerance τ, what fraction of datasets does a model solve within that tolerance of the best score?
 
-Think of it like a leaderboard with a grace margin. At τ = 1.0 (no tolerance) only the outright winner on each dataset gets credit — that is win rate. At τ = 1.2 you also count any model within 20% of the best. As τ grows, more datasets come into each model's tally. The curve traces how quickly each model accumulates datasets as the tolerance relaxes.
-
-A model that is always close to the best accumulates datasets quickly and reaches 100% at a small τ. A model that bombs badly on some datasets stays flat for a long stretch before those datasets finally fall within tolerance.
+At τ = 1.0, only the outright winner on each dataset gets credit, which is win rate exactly. At τ = 1.2, any model within 20% of the best score also counts. As τ grows, more datasets enter each model's tally and the curve rises. A model that is always close to the best accumulates datasets quickly and reaches 100% at a small τ. A model that falls far behind on some datasets stays flat for a long stretch before those datasets finally come within tolerance.
 
 ### The ratio and the curve
 
-For each model on each dataset, compute a **performance ratio** — how far the model is from the best score on that dataset:
+For each model on each dataset, compute a **performance ratio**, the distance from the best score on that dataset:
 
 $$r_{ij} = \frac{\max_k \, s_{kj}}{s_{ij}}$$
 
@@ -148,16 +146,16 @@ This is the empirical CDF of the ratios across datasets. At $\tau = 1$, only dat
 1. **All scores must be strictly positive.** The ratio $r_{ij} = \max_k s_{kj} / s_{ij}$ is undefined when $s_{ij} = 0$.
 2. **All scores must be higher-is-better.** For metrics where lower is better (e.g., RMSE), flip the ratio: $r_{ij} = s_{ij} / \min_k s_{kj}$, where $\min_k s_{kj}$ is the best (lowest) score. Pass `metric_direction={"dataset": "min"}` to `evaluma.load_csv` to handle this automatically.
 
-No normalization to [0, 1] is required — the ratio formula is scale-invariant.
+No normalization to [0, 1] is required: the ratio formula is scale-invariant.
 
-Because evaluma enforces requirement 1 (strictly positive scores), every performance ratio $r_{ij}$ is finite. This guarantees that every model's curve reaches ρ = 1 at τ = τ_max — unlike the original Dolan-Moré setting where a solver failure produces an infinite ratio and the curve can asymptote below 1.
+Because evaluma enforces requirement 1 (strictly positive scores), every performance ratio $r_{ij}$ is finite. This guarantees that every model's curve reaches ρ = 1 at τ = τ_max, unlike the original Dolan-Moré setting where a solver failure produces an infinite ratio and the curve can asymptote below 1.
 :::
 
 ### The log₁₀(τ) x-axis
 
-The x-axis is plotted as log₁₀(τ), not τ directly. At τ = 1 (win rate), log₁₀(1) = 0 — the left edge of the plot. At τ = 10 (ten times the best score), log₁₀(10) = 1.
+The x-axis is plotted as log₁₀(τ), not τ directly. At τ = 1 (win rate), log₁₀(1) = 0, the left edge of the plot. At τ = 10 (ten times the best score), log₁₀(10) = 1.
 
-The log scale makes sense because the ratio measures a *multiplicative* gap. A model that scores 0.90 vs. a best of 0.95 has the same multiplicative gap as one scoring 0.45 vs. 0.475 — both are within a factor of ≈1.056. A linear scale would compress close competitors while stretching models that lag badly. This convention follows Dolan & Moré (2002), extended by the AutoML Decathlon (Roberts et al., 2022) and ML-GYM (Batra et al., 2025).
+The log scale makes sense because the ratio measures a *multiplicative* gap. A model that scores 0.90 vs. a best of 0.95 has the same multiplicative gap as one scoring 0.45 vs. 0.475: both are within a factor of ≈1.056. A linear scale would compress close competitors while stretching models that lag badly. This convention follows Dolan & Moré (2002), extended by the AutoML Decathlon (Roberts et al., 2022) and ML-GYM (Batra et al., 2025).
 
 ### Plotting the profiles
 
@@ -194,13 +192,9 @@ plt.tight_layout()
 plt.show()
 ```
 
-Now the distinction is visible at a glance:
+At τ = 1 (the left edge), both curves start at ρ = 0.50, confirming the tied win rate from Section 2. Consistent rises immediately and steeply, reaching ρ = 1 at log₁₀(τ) ≈ 0.13 (τ ≈ 1.35): on its six losing datasets it scores ≈0.70 against a best of ≈0.90, never more than ≈35% below the best. Specialist stays flat at ρ = 0.50 for a stretch and climbs more slowly, reaching ρ = 1 at log₁₀(τ) ≈ 0.17 (τ ≈ 1.48): on its six losing datasets it scores ≈0.50 against a best of ≈0.70, a ≈40% gap.
 
-- **At τ = 1 (left edge):** both curves start at ρ = 0.50 — confirming the tied win rate from Section 2.
-- **Consistent** rises immediately and steeply, reaching ρ = 1 at log₁₀(τ) ≈ 0.13 (τ ≈ 1.35): on its six losing datasets it scores ≈0.70 against a best of ≈0.90 — never more than ≈35% below the best.
-- **Specialist** stays flat at ρ = 0.50 for a stretch, then climbs more slowly, reaching ρ = 1 only at log₁₀(τ) ≈ 0.17 (τ ≈ 1.48): on its six losing datasets it scores ≈0.50 against a best of ≈0.70, a ≈40% gap.
-
-The *shape* reveals what no scalar can: Specialist has high peak performance; Consistent has low variance. Which matters more depends on your deployment context.
+The shape of the curve reveals what no scalar can: Specialist has high peak performance on the tasks it excels at, while Consistent is never far behind on any of them. In a ranking table both models appear equivalent, but the profile makes the distinction immediate. Whether peak performance or broad competence matters more depends on what the benchmark is measuring and what you intend to conclude from it.
 
 (profiles-patterns)=
 ## 4. Reading the Profile — Three Common Patterns
@@ -267,13 +261,11 @@ plt.tight_layout()
 plt.show()
 ```
 
-**Dominant** (left panel): Dom-A's curve starts high and reaches ρ = 1 well before the others. One model is simply better on every dataset. This is the easiest case — pick that model.
+The dominant pattern (left panel) is the simplest: Dom-A's curve starts high and reaches ρ = 1 well before the others. One model is better on every dataset.
 
-**Crossing** (centre panel): Cross-A has a higher win rate — it outright wins 8 of 15 datasets, so its curve starts higher at τ = 1. But look at what happens after: its curve flattens, because on the 7 datasets it loses, it scores around 0.52 against a best of 0.74 — a ≈30% gap. Cross-B, with a flat score of 0.74 everywhere, never wins outright but is always competitive. Its curve rises steeply right after τ = 1, crosses A's, and reaches ρ = 1 first.
+The crossing pattern (centre panel) is more informative. Cross-A wins 8 of 15 datasets outright, so its curve starts higher at τ = 1. But its curve flattens after that, because on the 7 datasets it loses it scores around 0.52 against a best of 0.74, a ≈30% gap. Cross-B scores 0.74 everywhere, never wins outright but is always competitive; its curve rises steeply right after τ = 1, crosses A's, and reaches ρ = 1 first. Cross-A has higher peak performance; Cross-B is more consistent across the full benchmark.
 
-No single number captures both dimensions simultaneously. Cross-A has higher peak performance; Cross-B has higher consistency. The profile is the only tool that shows both at once.
-
-**Clustered** (right panel): All three curves nearly overlap. The models perform similarly across all datasets — no clear winner emerges from this benchmark. This is itself a useful finding: it tells you the choice between models is unlikely to matter much in practice.
+The clustered pattern (right panel) is also informative in its own way: all three curves nearly overlap, meaning the models perform similarly across all datasets and no clear winner emerges. When you see this pattern, the choice between models is unlikely to matter much for benchmark rankings.
 
 | Pattern | What you see | What it means |
 |---------|-------------|---------------|
@@ -284,9 +276,9 @@ No single number captures both dimensions simultaneously. Cross-A has higher pea
 (profiles-caution)=
 ## 5. Caution: Profiles Depend on Who Is in the Comparison
 
-A performance ratio $r_{ij} = \max_k s_{kj} / s_{ij}$ depends on who else is in the comparison. Remove a dominant model and the best score on each dataset changes, reshaping every other model's ratios — and potentially reversing the ranking.
+The performance ratio $r_{ij} = \max_k s_{kj} / s_{ij}$ is defined relative to the best score across all models in the comparison. Remove a dominant model and that reference changes on each dataset, reshaping every other model's ratios and potentially reversing the ranking.
 
-This is not a flaw. The profile measures *relative competitiveness*, not absolute performance. But it means that conclusions about one model depend on which other models are included. Gould & Scott (2016) document this and recommend a stability check: drop the top-ranked model and confirm whether the remaining ordering holds.
+The profile measures relative competitiveness, not absolute performance, so this is expected behaviour rather than a flaw. It does mean that conclusions about one model depend on which other models are included. Gould & Scott (2016) document this and recommend a stability check: drop the top-ranked model and confirm whether the remaining ordering holds.
 
 We illustrate with three models on eight datasets.
 
@@ -336,9 +328,9 @@ print()
 print("Reduced {B,C} win rates:", win_rates(bench_without_a))
 ```
 
-In the full set, Model-C occasionally beats the dominant Model-A on 3 of 8 datasets. By win rate the ordering is A > C > B — Model-B looks weakest because it never outright wins anything.
+In the full set, Model-C occasionally beats the dominant Model-A on 3 of 8 datasets. By win rate the ordering is A > C > B, with Model-B appearing weakest because it never outright wins anything.
 
-Remove Model-A and watch what happens: the five datasets where A was best now fall to the next-best model. Model-B picks up those five wins and leads 5-to-3. The relative ranking of B and C **reverses** — from C > B to B > C — purely because the benchmark lost its dominant model.
+Removing Model-A changes the reference on five datasets where it was best. Model-B picks up those five wins and leads 5-to-3, and the relative ranking of B and C reverses from C > B to B > C purely because the benchmark lost its dominant model.
 
 :::{warning}
 Run a stability check whenever you draw conclusions from profiles. Drop the top-ranked model and confirm whether the remaining ordering holds. If it reverses, report both views explicitly rather than treating either one as the definitive answer.
@@ -347,7 +339,7 @@ Run a stability check whenever you draw conclusions from profiles. Drop the top-
 (profiles-geobench)=
 ## 6. Applying Profiles to GeoBench
 
-The sections above built intuition on synthetic data. Here we apply performance profiles to GeoBench — a geospatial remote sensing benchmark with 19 diverse datasets and 14 pretrained backbone models.
+The sections above built intuition on synthetic data. This section applies performance profiles to GeoBench, a geospatial remote sensing benchmark with 19 diverse datasets and 14 pretrained backbone models.
 
 ### Loading the data
 
@@ -382,13 +374,11 @@ bench = evaluma.load_df(
 `evaluma` averages across seeds automatically when a `seed` column is provided, giving one score per (model, dataset) pair before any further analysis.
 :::
 
-One dataset — `biomassters` — uses RMSE (lower is better). Passing `metric_direction={"biomassters": "min"}` tells `performance_profiles()` to compute the ratio as $\text{RMSE}_i / \min_k \text{RMSE}_k$ so the model with the lowest RMSE still has ratio 1, and ratios grow as performance worsens. Note that performance profiles do not require normalizing scores to [0, 1] — the ratio formula is scale-invariant and operates on raw scores directly.
+One dataset, `biomassters`, uses RMSE (lower is better). Passing `metric_direction={"biomassters": "min"}` tells `performance_profiles()` to compute the ratio as $\text{RMSE}_i / \min_k \text{RMSE}_k$ so the model with the lowest RMSE still has ratio 1, and ratios grow as performance worsens. Performance profiles do not require normalizing scores to [0, 1]: the ratio formula is scale-invariant and operates on raw scores directly.
 
 ### Selecting representative models
 
-Plotting all 14 profile curves at once produces an unreadable chart. We use a trimmed-mean aggregate ranking to identify the top performers, then select one representative per model family.
-
-We use `aggregate_ranking()` here as a quick exploratory filter only — it is a point estimate and should not be treated as a definitive ranking.
+Plotting all 14 profile curves at once produces an unreadable chart. A trimmed-mean aggregate ranking identifies the top performers; we then select one representative per model family. `aggregate_ranking()` serves here as a quick exploratory filter, not a definitive ranking.
 
 ```{code-cell} python
 agg = bench.aggregate_ranking()
@@ -418,11 +408,11 @@ plt.tight_layout()
 plt.show()
 ```
 
-Reading the curves:
+At the left edge (τ = 1), three backbones share a win rate of 0.21: convnext_xlarge_fb_in22k, dinov3_vitl16, and clay_v1_base each win outright on 4 of 19 datasets. terramind_v1_large and dinov3_convnext_large are close behind at 0.16, while resnet50 wins only 1 dataset outright.
 
-- **Left edge (τ = 1):** the y-intercept shows which backbones win datasets outright most often — this is peak performance across tasks.
-- **Slope immediately after τ = 1:** a steep rise means the model is always competitive, even on datasets it doesn't win.
-- **Right tail:** a backbone that reaches ρ = 1 late — or has a flat stretch — has at least one dataset where it lags badly relative to the best.
+The slope immediately after τ = 1 is where the curves diverge. convnext_xlarge rises steeply and reaches ρ = 0.5 at log₁₀(τ) ≈ 0.009; clay_v1_base and terramind_v1_large follow a similar trajectory and are the first to reach ρ = 1, at log₁₀(τ) ≈ 0.11 and 0.12 respectively. Despite tying on win rate, dinov3_vitl16 rises more slowly and does not reach ρ = 1 until log₁₀(τ) ≈ 0.26, meaning it lags substantially behind the best backbone on several datasets.
+
+resnet50 shows the flattest profile: its curve barely moves until log₁₀(τ) ≈ 0.07 and does not reach ρ = 1 until log₁₀(τ) ≈ 0.30 (τ ≈ 2.0). This is the right-tail pattern from Section 4: a flat stretch followed by a slow climb signals datasets where the model lags badly relative to the best backbone.
 
 ### Stability check
 
@@ -459,7 +449,7 @@ print(f"\nOrder after removing {top_backbone}:")
 print(profile_order(result_no_top))
 ```
 
-If the relative order among the remaining models is unchanged, the profiles are stable. If any pair flips, note the instability explicitly in any report — the top backbone was suppressing ratios on datasets where it dominates, and its removal changes which model looks best on those tasks.
+If the relative order among the remaining models is unchanged, the profiles are stable. If any pair flips, note the instability explicitly in any report: the top backbone was suppressing ratios on datasets where it dominates, and its removal changes which model looks best on those tasks.
 
 :::{seealso}
 For pairwise probability estimates of "which backbone genuinely outperforms another," see the **Bayesian comparison tutorial**.
@@ -468,15 +458,15 @@ For pairwise probability estimates of "which backbone genuinely outperforms anot
 (profiles-aup)=
 ## 7. AUP: Collapsing the Curve to a Scalar
 
-A profile curve is a complete picture, but sometimes you need a single number — for a results table, or to rank ablations. The **Area Under the Profile (AUP)**, introduced by Roberts et al. (2022) in the AutoML Decathlon and subsequently adopted by AlgoPerf (Dahl et al., 2023) and ML-GYM (Batra et al., 2025), provides one by integrating the step function over log₁₀(τ) space:
+A profile curve offers a more complete and nuanced picture of model performance than aggregate rankings, capturing both peak performance and consistency across the full tolerance range. When a single scalar is needed for a results table or to rank ablations, the **Area Under the Profile (AUP)**, introduced by Roberts et al. (2022) in the AutoML Decathlon and subsequently adopted by AlgoPerf (Dahl et al., 2023) and ML-GYM (Batra et al., 2025), provides one by integrating the step function over log₁₀(τ) space:
 
 $$\text{AUP}_i = \int_1^{\tau_{\max}} \rho_i(\tau) \, d\log_{10}(\tau)
              = \sum_{k} \bigl(\log_{10}(\tau_{k+1}) - \log_{10}(\tau_k)\bigr) \cdot \rho_i(\tau_k)$$
 
-Each term in the sum is the width of a step in log scale times the height of the profile curve at that step — it is the area enclosed between the curve and the x-axis. A model whose curve rises early and stays high accumulates more area than one that starts high but flattens.
+Each term in the sum is the width of a step in log scale times the height of the profile curve at that step: it is the area enclosed between the curve and the x-axis. A model whose curve rises early and stays high accumulates more area than one that starts high but flattens.
 
 :::{warning}
-**AUP is not normalized.** Its scale depends on τ_max — the largest ratio observed in the run, set by the worst model on the hardest dataset. AUP values are comparable *within* a single benchmark run but not across runs with different τ_max values. A model's AUP will appear lower in a more competitive field simply because τ_max is smaller and there is less area to accumulate.
+**AUP is not normalized.** Its scale depends on τ_max, the largest ratio observed in the run, set by the worst model on the hardest dataset. AUP values are comparable *within* a single benchmark run but not across runs with different τ_max values. A model's AUP will appear lower in a more competitive field simply because τ_max is smaller and there is less area to accumulate.
 :::
 
 :::{margin}
@@ -505,16 +495,15 @@ plt.tight_layout()
 plt.show()
 ```
 
-A model with high win rate but a long flat stretch afterward will score lower on AUP than you might expect — that flat region is dead area where it scores no better than the already-accumulated fraction. The AUP ranking rewards models that are both competitive at τ = 1 and stay close to the best across the full τ range.
+A model with high win rate but a long flat stretch afterward will score lower on AUP than you might expect: that flat region contributes no area beyond what the win rate already accumulated. The AUP ranking rewards models that are both competitive at τ = 1 and stay close to the best across the full τ range.
 
 ## Summary
 
-- **Mean score hides distribution shape.** Two models with identical means can have completely different per-dataset profiles — one a specialist, one a generalist.
-- **Win rate improves on mean score** but loses information about *how far* a model falls behind on its losing datasets.
-- **Performance profiles generalise win rate** to all tolerance thresholds. The curve reveals both peak performance (left edge) and consistency (slope and crossing behaviour).
-- **Three common patterns:** Dominant (clear winner across all datasets), Crossing (peak-vs-consistency trade-off), Clustered (no clear winner; models perform similarly across datasets).
-- **Profiles are relative.** Adding or removing a model changes every other model's ratios. Always run a stability check by dropping the top-ranked model and confirming the remaining ordering holds.
-- **AUP collapses the curve to a scalar** — useful for ranking tables, but not comparable across benchmarks with different τ_max values.
+Mean score and win rate both collapse per-dataset performance to a single number. Mean score assigns weight by score magnitude; win rate counts how often a model leads. Neither captures how far a model falls behind on the datasets it doesn't win.
+
+Performance profiles generalise win rate to all tolerance thresholds, tracing how quickly each model accumulates datasets as τ relaxes. Three patterns appear repeatedly: Dominant (one curve starts high and reaches ρ = 1 first), Crossing (curves start at different heights and cross, revealing a peak-vs-consistency trade-off), and Clustered (curves nearly overlap, meaning no clear winner emerges).
+
+Profiles measure relative competitiveness, so adding or removing a model reshapes every other model's ratios. Always run a stability check by dropping the top-ranked model and confirming the remaining ordering holds. AUP collapses the curve to a scalar useful for ranking tables, but is not comparable across benchmarks with different τ_max values.
 
 **References**
 

@@ -12,13 +12,7 @@ kernelspec:
 
 # Frequentist vs Bayesian Model Comparison
 
-When you finish a benchmark run, two different questions are worth asking:
-
-1. **"Is there a significant difference between models A and B?"** — The frequentist Friedman + Nemenyi test gives you a p-value. If the adjusted pairwise p-value falls below α, you reject the null that the rank distributions of those two models are exchangeable under the Friedman framework.
-
-2. **"How probable is it that model A is better than B on a new dataset?"** — The Bayesian signed-rank test gives you a posterior probability. P(A > B) = 0.85 means: given the data, there is an 85 % probability that A outperforms B on a fresh dataset.
-
-These are complementary, not competing, perspectives. This tutorial runs both on the same benchmark and shows when they agree, when they diverge, and which to use in practice.
+You have run a set of models across a benchmark and want to know which performance gaps are real. Two statistical approaches answer that question in different ways: the frequentist Friedman + Nemenyi test gives you a p-value for whether a gap is significant, while the Bayesian signed-rank test gives you a posterior probability — P(A > B) = 0.85 means there is an 85% probability that A outperforms B on a fresh dataset. These are complementary perspectives, and this tutorial runs both on the same benchmark to show when they agree, when they diverge, and which to use.
 
 ```{code-cell} python
 import warnings
@@ -97,12 +91,10 @@ merged = freq_result.table[["model_a", "model_b", "p_value", "significant"]].mer
 merged
 ```
 
-For the A–B and A–C pairs (where Model-A clearly dominates), both methods agree: the difference is significant (Nemenyi p < 0.05) and Model-A is very likely better (P(A > B) close to 1).
+For the A–B and A–C pairs, both methods agree: the Nemenyi p-value is below 0.05 and P(A > B) is close to 1. For the B–C pair the two methods diverge slightly:
 
-For the B–C pair (near-identical models), the two methods tell slightly different stories:
-
-- **Frequentist**: `significant = False` — the rank gap between B and C does not exceed the critical difference.
-- **Bayesian**: `p_b_better` may still be non-trivial (e.g. 0.40) — meaning there is a non-negligible probability that C is better, even if we cannot call it "significant".
+- Frequentist: the rank gap between B and C does not exceed the critical difference, so `significant = False`.
+- Bayesian: `p_b_better` may still be around 0.40, capturing residual uncertainty that a binary significant/not-significant verdict cannot express.
 
 ## When they diverge
 
@@ -110,7 +102,7 @@ Divergence typically happens in two situations:
 
 ### 1. Small N (few datasets)
 
-With only 5–6 datasets, the Nemenyi test has limited power. `frequentist_comparison` requires at least 5 datasets; below that it raises a `ValueError`. The Bayesian test still returns meaningful posteriors at any N.
+With only 5–6 datasets, the Nemenyi test rarely rejects. The critical difference is proportional to `1/√N`, so as N shrinks the CD grows — at N=5 with three models, the CD covers about 74% of the possible rank range and the bar for significance becomes very high. The Friedman chi-squared approximation also degrades at small N. `frequentist_comparison` requires at least 5 datasets and raises a `ValueError` below that. The Bayesian test returns meaningful posteriors at any N because it does not rely on a rank-based approximation.
 
 ```{code-cell} python
 rows_small = [
@@ -134,11 +126,11 @@ print("Bayesian (N=5):")
 print(bayes_small.table[["model_a", "model_b", "p_a_better", "p_equiv", "p_b_better"]].to_string(index=False))
 ```
 
-With N=5 the Nemenyi test may not reject any null hypothesis. The Bayesian posteriors still reflect the structure of the data.
+With N=5 the CD covers most of the rank range, so no pair is likely to clear the significance bar. The Bayesian posteriors still show which model is more likely to win and by how much.
 
 ### 2. Borderline cases near the ROPE
 
-When two models differ by less than the ROPE (region of practical equivalence), the Bayesian test channels probability into `p_equiv`. The Wilcoxon test may still technically reject the null (because statistical significance says nothing about practical relevance).
+When two models differ by less than the ROPE (region of practical equivalence), the Bayesian test channels probability into `p_equiv`. The ROPE defines the score gap below which two models are considered interchangeable — a difference that small is not worth distinguishing regardless of what the test says. The Nemenyi test may still reject the null because it only asks whether the difference is nonzero, not whether it is large enough to matter in practice.
 
 ```{code-cell} python
 # Models within 0.02 of each other
@@ -166,17 +158,11 @@ print("Bayesian (rope=0.05):")
 print(bayes_close.table[["model_a", "model_b", "p_a_better", "p_equiv", "p_b_better"]].to_string(index=False))
 ```
 
-Here the Bayesian test may show `p_equiv` dominating (the models are practically equivalent), while the Nemenyi test might be insignificant for a different reason — insufficient power. Note that evaluma uses the same Friedman + Nemenyi path even for k=2, rather than the standalone Wilcoxon special-case from Demšar (2006), so the reported p-value comes from Nemenyi.
+Here the Bayesian test may show `p_equiv` dominating because the models are practically equivalent, while the Nemenyi test might also be insignificant but for a different reason: insufficient power at small N. Note that evaluma uses the same Friedman + Nemenyi path even for k=2, rather than the standalone Wilcoxon special-case from Demšar (2006), so the reported p-value comes from Nemenyi.
 
 ## Practical guidance
 
-Use the frequentist path when you need a p-value or CD diagram for a venue; use the Bayesian
-path when you want a probability statement ("P(A > B) = 0.85"). The frequentist path requires
-N ≥ 5 datasets — results at that boundary should be treated cautiously because the Friedman
-chi-squared approximation is coarse at small N. The Bayesian test returns meaningful
-posteriors at any N. When two models differ by less than your ROPE, the Bayesian test
-explicitly captures that practical equivalence; the frequentist test has no equivalent
-mechanism.
+Use the frequentist path when you need a p-value or CD diagram for a paper or benchmark report; use the Bayesian path when you want a probability statement ("P(A > B) = 0.85"). The frequentist path requires N ≥ 5 datasets, and results at that boundary should be treated cautiously because the Friedman chi-squared approximation is coarse at small N. The Bayesian test returns meaningful posteriors at any N. When two models differ by less than your ROPE, the Bayesian test explicitly captures that practical equivalence; the frequentist test has no way to express it.
 
 ## Running both in a single workflow
 
