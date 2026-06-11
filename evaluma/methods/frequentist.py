@@ -92,7 +92,7 @@ def compute_frequentist(
         ranked_f = scores_matrix.rank(ascending=True, axis=0)
         R = ranked_f.sum(axis=1).values
         friedman_stat = float(
-            12.0 / (N * k * (k + 1)) * float((R ** 2).sum()) - 3 * N * (k + 1)
+            12.0 / (N * k * (k + 1)) * float((R**2).sum()) - 3 * N * (k + 1)
         )
         friedman_p = float(chi2_dist.sf(friedman_stat, df=k - 1))
     if friedman_p >= alpha:
@@ -109,13 +109,15 @@ def compute_frequentist(
         ph = sp.posthoc_nemenyi_friedman(scores_matrix.T)
         rows = []
         for a, b in combinations(models, 2):
-            rows.append({
-                "model_a": a,
-                "model_b": b,
-                "rank_diff": abs(avg_ranks[a] - avg_ranks[b]),
-                "p_value": float(ph.loc[a, b]),
-                "significant": bool(ph.loc[a, b] < alpha),
-            })
+            rows.append(
+                {
+                    "model_a": a,
+                    "model_b": b,
+                    "rank_diff": abs(avg_ranks[a] - avg_ranks[b]),
+                    "p_value": float(ph.loc[a, b]),
+                    "significant": bool(ph.loc[a, b] < alpha),
+                }
+            )
 
         # CD scalar — use df=np.inf to match posthoc_nemenyi_friedman exactly
         q_alpha = studentized_range.ppf(1 - alpha, k, df=np.inf) / np.sqrt(2)

@@ -76,11 +76,14 @@ def test_friedman_warning_when_not_significant():
 
 def test_no_friedman_warning_when_significant():
     # Clearly different models → Friedman significant → no UserWarning
-    b = _make_bench({
-        "A": [0.95, 0.92, 0.93, 0.94, 0.96, 0.91],
-        "B": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
-    })
+    b = _make_bench(
+        {
+            "A": [0.95, 0.92, 0.93, 0.94, 0.96, 0.91],
+            "B": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
+        }
+    )
     import warnings as _warnings
+
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
         b.frequentist_comparison()
@@ -93,10 +96,12 @@ def test_no_friedman_warning_when_significant():
 
 
 def test_result_has_friedman_fields():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+        }
+    )
     res = b.frequentist_comparison()
     assert hasattr(res, "friedman_statistic")
     assert hasattr(res, "friedman_p_value")
@@ -105,22 +110,26 @@ def test_result_has_friedman_fields():
 
 
 def test_all_pairs_cd_not_none():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     res = b.frequentist_comparison()
     assert res.cd is not None
     assert res.cd > 0
 
 
 def test_reference_cd_is_none():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     res = b.frequentist_comparison(reference="A")
     assert res.cd is None
 
@@ -131,11 +140,13 @@ def test_reference_cd_is_none():
 
 
 def test_all_pairs_column_names():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     assert list(result.table.columns) == [
         "model_a",
@@ -147,41 +158,49 @@ def test_all_pairs_column_names():
 
 
 def test_all_pairs_no_p_value_corrected():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     assert "p_value_corrected" not in result.table.columns
 
 
 def test_all_pairs_row_count():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     assert len(result.table) == 3  # C(3, 2) = 3
 
 
 def test_all_pairs_rank_diff_is_positive():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     assert (result.table["rank_diff"] >= 0).all()
 
 
 def test_all_pairs_significant_consistent_with_alpha():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(alpha=0.05)
     expected = result.table["p_value"] < 0.05
     assert (result.table["significant"] == expected.values).all()
@@ -193,11 +212,13 @@ def test_all_pairs_significant_consistent_with_alpha():
 
 
 def test_reference_column_names():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(reference="A")
     assert list(result.table.columns) == [
         "model_a",
@@ -210,31 +231,37 @@ def test_reference_column_names():
 
 
 def test_reference_row_count():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(reference="A")
     assert len(result.table) == 2  # k - 1
 
 
 def test_reference_model_a_is_reference():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(reference="A")
     assert (result.table["model_a"] == "A").all()
 
 
 def test_reference_significant_uses_corrected_p():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(reference="A", alpha=0.05)
     expected = result.table["p_value_corrected"] < 0.05
     assert (result.table["significant"] == expected.values).all()
@@ -254,11 +281,13 @@ def test_identical_models_p_value_one():
 
 
 def test_cd_scalar_consistency():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(alpha=0.05)
     cd = result.cd
     for _, row in result.table.iterrows():
@@ -276,22 +305,26 @@ def test_cd_scalar_consistency():
 
 
 def test_avg_ranks_stored():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     assert hasattr(result, "avg_ranks")
     assert set(result.avg_ranks.index) == {"A", "B", "C"}
 
 
 def test_avg_ranks_ordering():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     # A has highest scores → lowest (best) rank
     assert result.avg_ranks["A"] < result.avg_ranks["B"] < result.avg_ranks["C"]
@@ -304,11 +337,13 @@ def test_avg_ranks_ordering():
 
 def test_clique_detection_identical_models():
     # Two nearly identical models should be in the same clique
-    b = _make_bench({
-        "A": [0.90, 0.88, 0.91, 0.89, 0.87, 0.92],
-        "B": [0.89, 0.87, 0.90, 0.88, 0.86, 0.91],
-        "C": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
-    })
+    b = _make_bench(
+        {
+            "A": [0.90, 0.88, 0.91, 0.89, 0.87, 0.92],
+            "B": [0.89, 0.87, 0.90, 0.88, 0.86, 0.91],
+            "C": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
+        }
+    )
     result = b.frequentist_comparison(alpha=0.05)
     # A and B should NOT be significantly different (rank_diff ≤ cd)
     ab_row = result.table[
@@ -325,33 +360,39 @@ def test_clique_detection_identical_models():
 
 
 def test_plot_all_pairs_returns_figure():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison()
     fig = result.plot()
     assert isinstance(fig, Figure)
 
 
 def test_plot_reference_returns_figure():
-    b = _make_bench({
-        "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
-        "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
-    })
+    b = _make_bench(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6, 0.85, 0.75],
+            "B": [0.5, 0.6, 0.4, 0.5, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.35, 0.22, 0.28],
+        }
+    )
     result = b.frequentist_comparison(reference="A")
     fig = result.plot()
     assert isinstance(fig, Figure)
 
 
 def test_plot_with_clique_bar():
-    b = _make_bench({
-        "A": [0.90, 0.88, 0.91, 0.89, 0.87, 0.92],
-        "B": [0.89, 0.87, 0.90, 0.88, 0.86, 0.91],
-        "C": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
-    })
+    b = _make_bench(
+        {
+            "A": [0.90, 0.88, 0.91, 0.89, 0.87, 0.92],
+            "B": [0.89, 0.87, 0.90, 0.88, 0.86, 0.91],
+            "C": [0.10, 0.12, 0.11, 0.13, 0.09, 0.14],
+        }
+    )
     result = b.frequentist_comparison(alpha=0.05)
     fig = result.plot()
     assert isinstance(fig, Figure)
@@ -421,11 +462,16 @@ def test_frequentist_subcommand_creates_files(tmp_path):
         [
             "frequentist",
             str(csv_path),
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--output", str(out),
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -445,12 +491,18 @@ def test_frequentist_subcommand_reference_flag(tmp_path):
         [
             "frequentist",
             str(csv_path),
-            "--model", "model",
-            "--dataset", "dataset",
-            "--metric", "metric",
-            "--score", "score",
-            "--reference", "A",
-            "--output", str(out),
+            "--model",
+            "model",
+            "--dataset",
+            "dataset",
+            "--metric",
+            "metric",
+            "--score",
+            "score",
+            "--reference",
+            "A",
+            "--output",
+            str(out),
         ],
     )
     assert result.exit_code == 0, result.output
