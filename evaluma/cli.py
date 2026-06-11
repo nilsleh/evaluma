@@ -283,7 +283,7 @@ def frequentist(
     reference,
     alpha,
 ):
-    """Compute Friedman + Nemenyi (all-pairs) or Wilcoxon + Holm (reference) comparison."""
+    """Friedman + Nemenyi (all-pairs) or Wilcoxon + Holm (reference) comparison."""
     bench = _load_bench(
         csv_path,
         model,

@@ -54,7 +54,9 @@ def test_raises_n_less_than_5():
 
 
 def test_raises_bad_reference():
-    m = _make_scores_matrix({"A": [0.5, 0.6, 0.7, 0.8, 0.9, 0.7], "B": [0.4, 0.5, 0.6, 0.7, 0.8, 0.6]})
+    m = _make_scores_matrix(
+        {"A": [0.5, 0.6, 0.7, 0.8, 0.9, 0.7], "B": [0.4, 0.5, 0.6, 0.7, 0.8, 0.6]}
+    )
     with pytest.raises(ValueError, match="not found in scores matrix"):
         compute_frequentist(m, reference="Z")
 

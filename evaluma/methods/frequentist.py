@@ -141,7 +141,9 @@ def compute_frequentist(
             else:
                 res = wilcoxon(diff, alternative="two-sided")
                 W, p = float(res.statistic), float(res.pvalue)
-            rows.append({"model_a": ref, "model_b": other, "w_statistic": W, "p_value": p})
+            rows.append(
+                {"model_a": ref, "model_b": other, "w_statistic": W, "p_value": p}
+            )
 
         raw_p = [r["p_value"] for r in rows]
         corrected = _holm_correction(raw_p)
