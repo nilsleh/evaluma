@@ -4,12 +4,46 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import trim_mean
 
 import evaluma
+from evaluma.methods.aggregate import _aggregate_scores
 
 matplotlib.use("Agg")
 
 EXPECTED_SCORES = {"A": 0.75, "B": 0.5, "C": 0.275}
+
+
+def test_aggregate_scores_helper_modes():
+    matrix = pd.DataFrame(
+        {
+            "d1": [0.0, 0.5],
+            "d2": [0.1, 0.6],
+            "d3": [0.2, 0.7],
+            "d4": [0.8, 0.2],
+            "d5": [1.0, 0.9],
+        },
+        index=["A", "B"],
+    )
+    expected = {
+        "mean": matrix.mean(axis=1),
+        "median": matrix.median(axis=1),
+        "trimmed_mean": pd.Series(
+            [trim_mean(matrix.loc[m].to_numpy(), 0.25) for m in matrix.index],
+            index=matrix.index,
+        ),
+    }
+    for agg, exp in expected.items():
+        out = _aggregate_scores(matrix, agg)
+        assert isinstance(out, pd.Series)
+        assert out.index.tolist() == matrix.index.tolist()
+        pd.testing.assert_series_equal(out, exp, check_names=False)
+
+
+def test_aggregate_scores_invalid_agg_raises():
+    matrix = pd.DataFrame({"d1": [0.1], "d2": [0.2]}, index=["A"])
+    with pytest.raises(ValueError, match="agg"):
+        _aggregate_scores(matrix, "bogus")
 
 
 def test_aggregate_table_schema(bench):

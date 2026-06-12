@@ -299,6 +299,7 @@ class RankSensitivityResult:
         table: pd.DataFrame,
         cond_a: str,
         cond_b: str,
+        agg: str = "trimmed_mean",
     ):
         """Initialize rank-sensitivity result container.
 
@@ -310,6 +311,8 @@ class RankSensitivityResult:
                 ``rank_{cond_b}``, ``delta_rank``.
             cond_a: Condition A label.
             cond_b: Condition B label.
+            agg: Per-model aggregation used to define the ranking
+                (``"trimmed_mean"``, ``"mean"``, or ``"median"``).
         """
         self.tau = float(tau)
         self.tau_ci = (float(tau_ci[0]), float(tau_ci[1]))
@@ -317,6 +320,7 @@ class RankSensitivityResult:
         self.table = table
         self.cond_a = cond_a
         self.cond_b = cond_b
+        self.agg = agg
 
     def plot(self, figsize=None, title=None, ax=None):
         """Render rank_a vs rank_b scatter with identity line and labels.
@@ -341,4 +345,5 @@ class RankSensitivityResult:
             figsize=figsize,
             title=title,
             ax=ax,
+            agg=self.agg,
         )

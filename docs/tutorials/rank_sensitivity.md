@@ -170,7 +170,11 @@ print(f"Spearman ρ = {result.rho:.3f}")
 :::{note}
 If you have two separately built `Benchmark` objects rather than a single long-format DataFrame, you can call `bench_adam.rank_sensitivity(bench_sgd, "Adam", "SGD")` directly. The `condition_col` workflow is the recommended entry point when the data is already in long format.
 
-Before calling `rank_sensitivity`, you can narrow the comparison with `bench.drop_models([...])` or `bench.drop_datasets([...])`, which return a new `BenchmarkGroup` with those entries removed from every condition.
+Before calling `rank_sensitivity`, you can narrow the comparison with `bench.drop_models([...])` or `bench.drop_datasets([...])`, which return a new `BenchmarkGroup` with those entries removed from every condition. Subsetting filters cells without re-scaling: the normalization bounds are frozen from the parent, so a retained model's normalized scores (and its rank relative to the other survivors) do not change when its peers are dropped.
+:::
+
+:::{note}
+`rank_sensitivity` ranks models by `trimmed_mean` by default, matching `aggregate_ranking` and the IQM/rliable convention, so the two views always agree on the ordering they report. Pass `agg="mean"` (or `agg="median"`) to opt out — `"mean"` is the right choice for light-tailed or very-small-N data, where the 25% per-dataset trim discards too much (with 5 datasets only 3 contribute). The chosen mode is recorded on `result.agg` and appended to the default plot title.
 :::
 
 ## 4. The rank scatter plot

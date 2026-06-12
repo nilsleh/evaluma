@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib
 import matplotlib.figure
 import matplotlib.pyplot as plt
@@ -67,6 +69,172 @@ def _make_group(conditions_to_scores, datasets=None):
         norm_ref_low=0.0,
         norm_ref_high=1.0,
     )
+
+
+def _make_group_unbounded(conditions_to_scores, datasets=None):
+    """Data-driven (``None``-bounds) BenchmarkGroup variant of ``_make_group``."""
+    if datasets is None:
+        datasets = ["d1", "d2", "d3", "d4", "d5"]
+    rows = []
+    for cond, scores_dict in conditions_to_scores.items():
+        for model, scores in scores_dict.items():
+            for d, s in zip(datasets, scores):
+                rows.append(
+                    {
+                        "optimizer": cond,
+                        "model": model,
+                        "dataset": d,
+                        "metric": "acc",
+                        "score": s,
+                    }
+                )
+    return evaluma.load_df(
+        pd.DataFrame(rows),
+        condition_col="optimizer",
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+    )
+
+
+# C is extreme on every dataset, so under data-driven bounds its presence sets
+# the per-dataset max; dropping it re-scales the survivors pre-fix.
+_GROUP_ADAM = {
+    "A": [0.55, 0.55, 0.55, 0.10, 0.50],
+    "B": [0.45, 0.45, 0.45, 0.90, 0.50],
+    "C": [1.00, 1.00, 1.00, 0.50, 0.99],
+}
+_GROUP_SGD = {
+    "A": [0.50, 0.50, 0.50, 0.90, 0.55],
+    "B": [0.55, 0.55, 0.55, 0.10, 0.45],
+    "C": [0.99, 0.99, 0.99, 0.50, 1.00],
+}
+
+
+def test_group_drop_models_preserves_rank_sensitivity():
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        group = _make_group_unbounded({"Adam": _GROUP_ADAM, "SGD": _GROUP_SGD})
+        keep = ["A", "B"]
+        expected = compute_rank_sensitivity(
+            group["Adam"].scores_.loc[keep],
+            group["SGD"].scores_.loc[keep],
+            "Adam",
+            "SGD",
+            random_state=0,
+        )
+        actual = group.drop_models(["C"]).rank_sensitivity(
+            "Adam", "SGD", random_state=0
+        )
+        assert actual.tau == pytest.approx(expected.tau)
+        assert actual.rho == pytest.approx(expected.rho)
+        exp_ranks = (
+            expected.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
+        )
+        act_ranks = (
+            actual.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
+        )
+        pd.testing.assert_frame_equal(act_ranks, exp_ranks)
+
+
+def test_group_drop_datasets_preserves_rank_sensitivity():
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        group = _make_group_unbounded({"Adam": _GROUP_ADAM, "SGD": _GROUP_SGD})
+        keep_ds = ["d1", "d2", "d3", "d5"]
+        expected = compute_rank_sensitivity(
+            group["Adam"].scores_[keep_ds],
+            group["SGD"].scores_[keep_ds],
+            "Adam",
+            "SGD",
+            random_state=0,
+        )
+        actual = group.drop_datasets(["d4"]).rank_sensitivity(
+            "Adam", "SGD", random_state=0
+        )
+        assert actual.tau == pytest.approx(expected.tau)
+        assert actual.rho == pytest.approx(expected.rho)
+        exp_ranks = (
+            expected.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
+        )
+        act_ranks = (
+            actual.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
+        )
+        pd.testing.assert_frame_equal(act_ranks, exp_ranks)
+
+
+def test_default_agg_matches_aggregate_ranking():
+    # Model A bombs one task: under mean B ranks top, under trimmed_mean A does.
+    scores = {
+        "A": [0.9, 0.9, 0.9, 0.9, 0.0],
+        "B": [0.8, 0.8, 0.8, 0.8, 0.8],
+        "C": [0.5, 0.5, 0.5, 0.5, 0.5],
+    }
+    datasets = ["d1", "d2", "d3", "d4", "d5"]
+    bench = _make_bench(scores, datasets=datasets)
+    m = bench.scores_
+    result = compute_rank_sensitivity(m, m.copy(), "X", "Y", n_bootstrap=0)
+    rank_order = result.table.sort_values("rank_X")["model"].tolist()
+    agg_order = bench.aggregate_ranking().table["model"].tolist()
+    assert rank_order == agg_order
+
+
+def test_agg_mean_reproduces_pre_change_tau():
+    a = _make_scores_matrix(
+        {
+            "A": [0.95, 0.20, 0.90, 0.88],
+            "B": [0.70, 0.72, 0.71, 0.10],
+            "C": [0.65, 0.66, 0.64, 0.67],
+            "D": [0.50, 0.55, 0.52, 0.99],
+        }
+    )
+    b = _make_scores_matrix(
+        {
+            "A": [0.60, 0.61, 0.62, 0.10],
+            "B": [0.90, 0.20, 0.88, 0.87],
+            "C": [0.70, 0.72, 0.71, 0.69],
+            "D": [0.50, 0.55, 0.40, 0.95],
+        }
+    )
+    result = compute_rank_sensitivity(a, b, "Adam", "SGD", agg="mean", random_state=0)
+    rank_a = a.mean(axis=1).rank(ascending=False, method="average")
+    rank_b = b.mean(axis=1).rank(ascending=False, method="average")
+    expected = kendalltau(rank_a.values, rank_b.values, method="auto").statistic
+    assert result.tau == pytest.approx(expected)
+
+
+def test_rank_sensitivity_invalid_agg_raises():
+    a = _make_scores_matrix({"A": [0.9, 0.8], "B": [0.8, 0.7]})
+    with pytest.raises(ValueError, match="agg"):
+        compute_rank_sensitivity(a, a.copy(), "X", "Y", agg="bogus", n_bootstrap=0)
+
+
+def test_agg_threads_through_group_and_recorded():
+    group = _make_group(
+        {
+            "Adam": {"A": [0.9, 0.9, 0.9, 0.9, 0.0, 0.5], "B": [0.8] * 6},
+            "SGD": {"A": [0.8] * 6, "B": [0.9, 0.9, 0.9, 0.9, 0.0, 0.5]},
+        }
+    )
+    r_mean = group.rank_sensitivity("Adam", "SGD", agg="mean", random_state=0)
+    assert r_mean.agg == "mean"
+    r_default = group.rank_sensitivity("Adam", "SGD", random_state=0)
+    assert r_default.agg == "trimmed_mean"
+
+
+def test_small_n_trimmed_mean_warning():
+    a = _make_bench(
+        {"A": [0.9, 0.8, 0.7], "B": [0.8, 0.7, 0.6]}, datasets=["d1", "d2", "d3"]
+    )
+    b = _make_bench(
+        {"A": [0.8, 0.9, 0.7], "B": [0.7, 0.8, 0.6]}, datasets=["d1", "d2", "d3"]
+    )
+    with pytest.warns(UserWarning, match="trim"):
+        a.rank_sensitivity(b, "Adam", "SGD", agg="trimmed_mean", random_state=0)
+    with pytest.warns(UserWarning) as rec:
+        a.rank_sensitivity(b, "Adam", "SGD", agg="mean", random_state=0)
+    assert all("trim" not in str(w.message).lower() for w in rec)
 
 
 def test_perfect_agreement():

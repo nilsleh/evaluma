@@ -459,6 +459,7 @@ def plot_rank_sensitivity(
     figsize=None,
     title=None,
     ax=None,
+    agg=None,
 ):
     """Render rank-sensitivity scatter for two conditions.
 
@@ -472,6 +473,8 @@ def plot_rank_sensitivity(
         figsize: Figure size ``(width, height)`` in inches.
         title: Optional axes title.
         ax: Existing axes to draw into; a new figure is created if ``None``.
+        agg: Aggregation label appended to the default title (e.g.
+            ``"trimmed_mean"``); omitted from the title when ``None``.
 
     Returns:
         matplotlib.figure.Figure: The rendered figure.
@@ -502,6 +505,8 @@ def plot_rank_sensitivity(
         else "[nan, nan]"
     )
     default_title = f"Kendall tau = {tau:.2f} (95% CI {ci_text})"
+    if agg is not None:
+        default_title += f", agg={agg}"
     ax.set_title(title or default_title)
     ax.set_xlabel(f"Rank ({cond_a})")
     ax.set_ylabel(f"Rank ({cond_b})")

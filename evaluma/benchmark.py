@@ -64,10 +64,24 @@ class Benchmark:
         return self._normalize(self._raw)
 
     def _new(self, raw_matrix, raw_runs=None):
+        """Build a subset Benchmark with normalization bounds frozen from the parent.
+
+        Subsetting filters cells without re-scaling the retained scores: the
+        parent's bounds are resolved to concrete per-dataset ``Series`` (on the
+        pre-inversion raw matrix) and restricted to the surviving columns, so a
+        survivor's normalized score is identical whether or not its peers were
+        dropped. ``normalize`` still applies any ``metric_direction`` inversion
+        once on these frozen bounds.
+        """
+        from evaluma.normalize import _resolve_bound
+
+        cols = raw_matrix.columns
+        low = _resolve_bound(self._raw, self._norm_ref_low, use_min=True).loc[cols]
+        high = _resolve_bound(self._raw, self._norm_ref_high, use_min=False).loc[cols]
         return Benchmark(
             raw_matrix,
-            norm_ref_low=self._norm_ref_low,
-            norm_ref_high=self._norm_ref_high,
+            norm_ref_low=low,
+            norm_ref_high=high,
             metric_direction=self._metric_direction,
             raw_runs=raw_runs,
         )
@@ -85,6 +99,9 @@ class Benchmark:
     def select_models(self, models):
         """Subset the benchmark to the given models.
 
+        Subsetting filters cells without re-scaling retained scores; the
+        normalization bounds are frozen from the parent.
+
         Args:
             models: List of model names to retain.
 
@@ -101,6 +118,9 @@ class Benchmark:
     def drop_models(self, exclude):
         """Subset the benchmark by dropping specific models.
 
+        Subsetting filters cells without re-scaling retained scores; the
+        normalization bounds are frozen from the parent.
+
         Args:
             exclude: List of model names to remove.
 
@@ -112,6 +132,9 @@ class Benchmark:
 
     def select_datasets(self, datasets):
         """Subset the benchmark to the given datasets.
+
+        Subsetting filters cells without re-scaling retained scores; the
+        normalization bounds are frozen from the parent.
 
         Args:
             datasets: List of dataset names to retain.
@@ -128,6 +151,9 @@ class Benchmark:
 
     def drop_datasets(self, exclude):
         """Subset the benchmark by dropping specific datasets.
+
+        Subsetting filters cells without re-scaling retained scores; the
+        normalization bounds are frozen from the parent.
 
         Args:
             exclude: List of dataset names to remove.
@@ -349,6 +375,7 @@ class Benchmark:
         cond_b,
         n_bootstrap=1000,
         random_state=None,
+        agg="trimmed_mean",
     ):
         """Quantify whether rankings reorder between two conditions.
 
@@ -358,6 +385,10 @@ class Benchmark:
             cond_b: Label for ``other`` benchmark's condition.
             n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
             random_state: Seed for bootstrap sampling.
+            agg: Per-model aggregation defining the ranking. Defaults to
+                ``"trimmed_mean"`` to match :meth:`aggregate_ranking`;
+                ``"mean"`` is available for light-tailed or very-small-N data,
+                and ``"median"`` is also accepted.
 
         Returns:
             RankSensitivityResult: Rank sensitivity result object.
@@ -398,11 +429,14 @@ class Benchmark:
             raise ValueError("Dataset mismatch between conditions: " + "; ".join(parts))
 
         if len(datasets_a) < 5:
-            warnings.warn(
-                f"Only {len(datasets_a)} datasets provided; bootstrap CI may be wide.",
-                UserWarning,
-                stacklevel=2,
-            )
+            msg = f"Only {len(datasets_a)} datasets provided; bootstrap CI may be wide."
+            if agg == "trimmed_mean":
+                msg += (
+                    " With agg='trimmed_mean' the 25% per-dataset trim is degenerate "
+                    "at this N (few datasets contribute to each model's score); "
+                    "consider agg='mean'."
+                )
+            warnings.warn(msg, UserWarning, stacklevel=2)
 
         aligned_other = other.scores_.loc[self.scores_.index, self.scores_.columns]
         return compute_rank_sensitivity(
@@ -412,6 +446,7 @@ class Benchmark:
             cond_b=cond_b,
             n_bootstrap=n_bootstrap,
             random_state=random_state,
+            agg=agg,
         )
 
 
@@ -447,7 +482,9 @@ class BenchmarkGroup:
         """
         return self._benchmarks[key]
 
-    def rank_sensitivity(self, cond_a, cond_b, n_bootstrap=1000, random_state=None):
+    def rank_sensitivity(
+        self, cond_a, cond_b, n_bootstrap=1000, random_state=None, agg="trimmed_mean"
+    ):
         """Run rank-sensitivity analysis between two conditions in the group.
 
         Args:
@@ -455,6 +492,9 @@ class BenchmarkGroup:
             cond_b: Condition B label.
             n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
             random_state: Seed for bootstrap sampling.
+            agg: Per-model aggregation defining the ranking. Defaults to
+                ``"trimmed_mean"`` to match :meth:`Benchmark.aggregate_ranking`;
+                ``"mean"`` is available for light-tailed or very-small-N data.
 
         Returns:
             RankSensitivityResult: Rank sensitivity result object.
@@ -469,6 +509,7 @@ class BenchmarkGroup:
             cond_b=cond_b,
             n_bootstrap=n_bootstrap,
             random_state=random_state,
+            agg=agg,
         )
 
     def select_models(self, models):

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import kendalltau, spearmanr
 
+from evaluma.methods.aggregate import _aggregate_scores
 from evaluma.results import RankSensitivityResult
 
 
@@ -44,17 +45,19 @@ def _validate_aligned_axes(scores_a: pd.DataFrame, scores_b: pd.DataFrame):
         raise ValueError("Dataset mismatch: " + "; ".join(parts))
 
 
-def _ranks_from_scores(scores: pd.DataFrame) -> pd.Series:
+def _ranks_from_scores(scores: pd.DataFrame, agg="trimmed_mean") -> pd.Series:
     """Aggregate per-model scores and convert them to ranks.
 
     Args:
         scores: Normalized score matrix (model × dataset).
+        agg: Aggregation mode passed to
+            :func:`~evaluma.methods.aggregate._aggregate_scores`; defaults to
+            ``"trimmed_mean"`` to match ``aggregate_ranking``.
 
     Returns:
         pd.Series: Average ranks with rank 1 as best (higher score is better).
     """
-    agg = scores.mean(axis=1)
-    return agg.rank(ascending=False, method="average")
+    return _aggregate_scores(scores, agg=agg).rank(ascending=False, method="average")
 
 
 def compute_rank_sensitivity(
@@ -64,6 +67,7 @@ def compute_rank_sensitivity(
     cond_b,
     n_bootstrap=1000,
     random_state=None,
+    agg="trimmed_mean",
 ) -> RankSensitivityResult:
     """Compute ranking sensitivity between two model×dataset score matrices.
 
@@ -74,12 +78,16 @@ def compute_rank_sensitivity(
         cond_b: Label for condition B (used in output table/plot labels).
         n_bootstrap: Number of dataset-bootstrap samples for the 95% CI.
         random_state: Seed for ``numpy.random.default_rng``.
+        agg: Per-model aggregation defining the ranking — ``"trimmed_mean"``
+            (default, matching ``aggregate_ranking``), ``"mean"``, or
+            ``"median"``.
 
     Returns:
         RankSensitivityResult: Rank sensitivity point estimates, CI, and table.
 
     Raises:
         ValueError: If ``n_bootstrap < 0``.
+        ValueError: If ``agg`` is not a supported mode.
         ValueError: If model or dataset labels are misaligned.
     """
     if n_bootstrap < 0:
@@ -88,8 +96,8 @@ def compute_rank_sensitivity(
     _validate_aligned_axes(scores_a, scores_b)
 
     scores_b = scores_b.loc[scores_a.index, scores_a.columns]
-    rank_a = _ranks_from_scores(scores_a)
-    rank_b = _ranks_from_scores(scores_b)
+    rank_a = _ranks_from_scores(scores_a, agg=agg)
+    rank_b = _ranks_from_scores(scores_b, agg=agg)
 
     tau = float(kendalltau(rank_a.values, rank_b.values, method="auto").statistic)
     rho = float(spearmanr(rank_a.values, rank_b.values).statistic)
@@ -123,6 +131,7 @@ def compute_rank_sensitivity(
             table=table,
             cond_a=cond_a_str,
             cond_b=cond_b_str,
+            agg=agg,
         )
 
     rng = np.random.default_rng(random_state)
@@ -133,8 +142,8 @@ def compute_rank_sensitivity(
     for i in range(n_bootstrap):
         sample_idx = rng.integers(0, n_datasets, size=n_datasets)
         sampled_cols = columns[sample_idx]
-        rank_a_b = _ranks_from_scores(scores_a.loc[:, sampled_cols])
-        rank_b_b = _ranks_from_scores(scores_b.loc[:, sampled_cols])
+        rank_a_b = _ranks_from_scores(scores_a.loc[:, sampled_cols], agg=agg)
+        rank_b_b = _ranks_from_scores(scores_b.loc[:, sampled_cols], agg=agg)
         boot_tau[i] = kendalltau(
             rank_a_b.values, rank_b_b.values, method="auto"
         ).statistic
@@ -159,4 +168,5 @@ def compute_rank_sensitivity(
         table=table,
         cond_a=cond_a_str,
         cond_b=cond_b_str,
+        agg=agg,
     )
