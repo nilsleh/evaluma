@@ -302,7 +302,17 @@ class Benchmark:
             ValueError: If ``calibration_model`` is not in the score matrix.
         """
         from evaluma.methods.elo import compute_elo
+        from evaluma.normalize import _resolve_bound
         from evaluma.results import EloResult
+
+        # When seed-level battles are used, normalize per-seed scores with the
+        # same bounds as ``scores_`` so ``tie_threshold`` is on the [0,1] scale,
+        # consistent with the win-rate matrix (built from ``scores_``).
+        norm_bounds = None
+        if self._raw_runs is not None:
+            low = _resolve_bound(self._raw, self._norm_ref_low, use_min=True)
+            high = _resolve_bound(self._raw, self._norm_ref_high, use_min=False)
+            norm_bounds = (low, high)
 
         table, winrate_matrix = compute_elo(
             self.scores_,
@@ -312,6 +322,7 @@ class Benchmark:
             calibration_model=calibration_model,
             raw_runs=self._raw_runs,
             metric_direction=self._metric_direction,
+            norm_bounds=norm_bounds,
         )
         return EloResult(table, winrate_matrix)
 

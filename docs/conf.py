@@ -30,5 +30,5 @@ exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 suppress_warnings = ["ref.python"]
 
 nb_execution_mode = "force"
-nb_execution_timeout = 120
+nb_execution_timeout = 240
 myst_enable_extensions = ["amsmath", "dollarmath", "colon_fence"]

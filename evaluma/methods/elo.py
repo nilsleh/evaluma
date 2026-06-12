@@ -5,6 +5,7 @@ from itertools import combinations
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +135,6 @@ def _fit_elo(
     Returns:
         pd.Series: ELO ratings indexed by model name.
     """
-    from sklearn.linear_model import LogisticRegression
-
     if models is None:
         models = pd.concat([battles["model_a"], battles["model_b"]]).unique().tolist()
 
@@ -161,17 +160,17 @@ def _fit_elo(
 
     n_battles = len(battles)
     X = np.zeros((n_battles, n), dtype=np.float64)
-    Y = battles["outcome"].values.astype(np.float64)
-    W = battles["weight"].values.astype(np.float64)
+    Y = battles["outcome"].to_numpy(dtype=np.float64)
+    W = battles["weight"].to_numpy(dtype=np.float64)
 
     # Bake log(base) into the design matrix (TabArena convention) so the
     # logistic coefficients land directly on the ELO scale via `scale * coef`.
     log_base = np.log(base)
-    for k, (_, row) in enumerate(battles.iterrows()):
-        i = model_idx[row["model_a"]]
-        j = model_idx[row["model_b"]]
-        X[k, i] = log_base
-        X[k, j] = -log_base
+    row_idx = np.arange(n_battles)
+    model_a_idx = battles["model_a"].map(model_idx).to_numpy(dtype=np.intp)
+    model_b_idx = battles["model_b"].map(model_idx).to_numpy(dtype=np.intp)
+    X[row_idx, model_a_idx] = log_base
+    X[row_idx, model_b_idx] = -log_base
 
     try:
         unique_y = np.unique(Y)
@@ -215,20 +214,28 @@ def compute_battles_from_runs(
     raw_runs: pd.DataFrame,
     tie_threshold: float | None = None,
     metric_direction: dict[str, str] | None = None,
+    norm_bounds: tuple | None = None,
 ) -> pd.DataFrame:
     """Generate battles from per-seed long-format data.
 
     Pairs all models within each (dataset, seed) combination. Each dataset
-    contributes total weight 1 regardless of seed count. Datasets mapped to
-    ``"min"`` in ``metric_direction`` are negated so that higher score always
-    means better throughout.
+    contributes total weight 1 regardless of seed count.
+
+    Per-seed scores are made "higher = better" before comparison. When
+    ``norm_bounds`` is supplied, scores are min-max normalized to ``[0, 1]``
+    per dataset (so ``tie_threshold`` is on the normalized scale, matching the
+    win-rate matrix); otherwise ``"min"`` datasets are simply negated and raw
+    scores are compared (TabArena convention).
 
     Args:
         raw_runs: Long-format DataFrame with columns
             ``["model", "dataset", "seed", "score"]``.
         tie_threshold: Score difference at or below which a pair is a tie.
         metric_direction: Maps dataset names to ``"min"`` or ``"max"``.
-            Datasets mapped to ``"min"`` are negated before comparison.
+        norm_bounds: Optional ``(low, high)`` per-dataset bound Series. When
+            given, each seed score is normalized via the same min-max rule as
+            the score matrix before thresholding; ``"min"`` datasets are
+            inverted by the normalization itself.
 
     Returns:
         DataFrame with columns ``["model_a", "model_b", "outcome", "dataset",
@@ -240,12 +247,22 @@ def compute_battles_from_runs(
     n_pairs = len(pairs)
 
     for dataset, ds_df in raw_runs.groupby("dataset"):
-        sign = -1.0 if (metric_direction or {}).get(dataset) == "min" else 1.0
+        is_min = (metric_direction or {}).get(dataset) == "min"
+        if norm_bounds is not None:
+            low, high = norm_bounds
+            lo, hi = float(low[dataset]), float(high[dataset])
         seeds = ds_df["seed"].unique()
         n_seeds = len(seeds)
         weight = 1.0 / (n_pairs * n_seeds) if n_pairs > 0 else 0.0
         for seed, seed_df in ds_df.groupby("seed"):
-            seed_scores = seed_df.set_index("model")["score"] * sign
+            raw = seed_df.set_index("model")["score"]
+            if norm_bounds is not None:
+                if is_min:
+                    seed_scores = (hi - raw) / (hi - lo)
+                else:
+                    seed_scores = (raw - lo) / (hi - lo)
+            else:
+                seed_scores = raw * (-1.0 if is_min else 1.0)
             for model_a, model_b in pairs:
                 if model_a not in seed_scores.index or model_b not in seed_scores.index:
                     continue
@@ -275,6 +292,7 @@ def compute_elo(
     calibration_model: str | None = None,
     raw_runs: pd.DataFrame | None = None,
     metric_direction: dict[str, str] | None = None,
+    norm_bounds: tuple | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Compute MLE ELO ratings with battle-within-task bootstrap CIs.
 
@@ -293,6 +311,12 @@ def compute_elo(
             (dataset, seed) groups.
         metric_direction: Passed to :func:`compute_battles_from_runs`. Ignored
             when ``raw_runs`` is ``None``.
+        norm_bounds: Optional ``(low, high)`` per-dataset bound Series. When
+            provided alongside ``raw_runs``, per-seed scores are normalized to
+            ``[0, 1]`` before battles are formed, so ``tie_threshold`` matches
+            the normalized scale of the win-rate matrix. ``None`` keeps raw
+            seed scores (TabArena convention). Ignored when ``raw_runs`` is
+            ``None``.
 
     Returns:
         Tuple of:
@@ -313,7 +337,10 @@ def compute_elo(
 
     if raw_runs is not None:
         battles = compute_battles_from_runs(
-            raw_runs, tie_threshold=tie_threshold, metric_direction=metric_direction
+            raw_runs,
+            tie_threshold=tie_threshold,
+            metric_direction=metric_direction,
+            norm_bounds=norm_bounds,
         )
     else:
         battles = compute_battles(scores, tie_threshold=tie_threshold)

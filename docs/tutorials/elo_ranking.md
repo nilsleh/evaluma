@@ -100,7 +100,7 @@ The matrix also surfaces a counterintuitive result. Model-D, which ranks last by
 
 ## 3. MLE ELO ratings with bootstrap CIs
 
-ELO ratings are fit by maximum likelihood. The log-odds of model $i$ beating model $j$ is proportional to $\theta_i - \theta_j$, where $\theta$ is the vector of model ratings. This corresponds to logistic regression on a design matrix where each battle contributes one row with $+1$ in model $i$'s column and $-1$ in model $j$'s column, weighted to enforce equal dataset contributions. Ties are expanded into two half-weight rows, one with outcome 1 and one with outcome 0, so that a draw contributes half a win and half a loss to each side.
+ELO ratings are fit by maximum likelihood, following [TabArena](https://arxiv.org/abs/2506.16791). The ELO model sets the probability that model $i$ beats model $j$ to $1 / \left(1 + \text{base}^{-(R_i - R_j)/\text{scale}}\right)$, where $R$ is the vector of ratings and the constants $\text{base}=10$, $\text{scale}=400$ fix the convention that a 400-point gap corresponds to 10:1 odds. This is a logistic regression: each battle contributes one row with $+\ln(\text{base})$ in model $i$'s column and $-\ln(\text{base})$ in model $j$'s column, weighted to enforce equal dataset contributions. Folding $\ln(\text{base})$ into the design matrix (rather than using $\pm 1$ entries) makes the fitted coefficients land directly on the ELO scale, so the final ratings are simply $\text{scale} \times \text{coefficients}$. Ties are expanded into two half-weight rows, one with outcome 1 and one with outcome 0, so that a draw contributes half a win and half a loss to each side.
 
 Bootstrap confidence intervals resample battles within each dataset. For each of the 1000 replicates, the set of battles that belong to dataset $k$ is resampled with replacement; ELO is then refit on the reassembled battles table. This captures uncertainty about which datasets drive the ranking: if a few datasets dominate a model's ELO, the CI will be wide.
 
@@ -121,7 +121,7 @@ plt.show()
 result.table.round(1)
 ```
 
-Model-B leads at ELO 1718, well above Model-C (1086) and Model-A (637), which sits close to Model-D (559) despite having the highest mean score. Model-B's CI is wide: bootstrap replicates that draw mainly from D01–D02 (where B scores only ≈ 0.08) produce very low resampled ratings, while replicates that draw mainly from D03–D07 produce very high ones. Model-C and Model-A have overlapping CIs, so the data do not confidently separate their ELO positions.
+Model-B leads at ELO 1312, well above Model-C (1037) and Model-A (842), which sits close to Model-D (808) despite having the highest mean score. Model-B's CI is wide: bootstrap replicates that draw mainly from D01–D02 (where B scores only ≈ 0.08) produce very low resampled ratings, while replicates that draw mainly from D03–D07 produce very high ones. Model-C and Model-A have overlapping CIs, so the data do not confidently separate their ELO positions.
 
 ## 4. `tie_threshold`: treating near-ties as draws
 
@@ -134,7 +134,7 @@ result_t = bench.elo_ranking(tie_threshold=0.05, random_state=42)
 result_t.table.round(1)
 ```
 
-The ELO spread narrows: Model-B drops from 1718 to 1517 as some of its dominant wins are softened to partial credit, and the other models follow a similar pattern. The ranking is unchanged.
+The ELO spread narrows: Model-B drops from 1312 to 1224 as some of its dominant wins are softened to partial credit, and the other models follow a similar pattern. The ranking is unchanged.
 
 :::{note}
 `tie_threshold` operates on the [0, 1] normalized score scale. A value of 0.05 means "within 5 percentage points on the normalized benchmark scale." This is analogous to the `rope` parameter in `bench.bayesian_comparison()`, which also treats normalized-score differences below a threshold as practically equivalent.
@@ -149,7 +149,7 @@ result_c = bench.elo_ranking(calibration_model="Model-B", random_state=42)
 result_c.table.round(1)
 ```
 
-With Model-B anchored to 1000, Model-C sits at 368 and Model-A at −81. The calibration anchor's CI collapses to [1000, 1000] by construction; the CIs for other models widen because they now carry all the fitting uncertainty relative to that fixed point.
+With Model-B anchored to 1000, Model-C sits at 726 and Model-A at 530. The calibration anchor's CI collapses to [1000, 1000] by construction; the CIs for other models widen because they now carry all the fitting uncertainty relative to that fixed point.
 
 ## 6. Multi-seed battles with `raw_runs`
 
@@ -240,10 +240,10 @@ bench_geo = evaluma.load_df(
 )
 ```
 
-`bench_geo.elo_ranking()` fits MLE ELO from per-seed battles across 19 datasets and 14 backbones.
+`bench_geo.elo_ranking()` fits MLE ELO from per-seed battles across 19 datasets and 14 backbones. The example uses 200 bootstrap replicates to keep docs execution time bounded; for a final analysis, increase `n_bootstrap` if you need tighter CI estimates.
 
 ```{code-cell} python
-elo_geo = bench_geo.elo_ranking(random_state=42)
+elo_geo = bench_geo.elo_ranking(n_bootstrap=200, random_state=42)
 
 fig = elo_geo.plot(
     figsize=(9, 5),

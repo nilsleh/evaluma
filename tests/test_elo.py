@@ -562,6 +562,84 @@ def test_compute_battles_from_runs_tie():
     assert battles.iloc[0]["outcome"] == pytest.approx(0.5)
 
 
+def test_compute_battles_from_runs_norm_bounds_tie_threshold():
+    # Two datasets, identical NORMALIZED gap (0.02) but different raw scales.
+    # tie_threshold=0.05 is on the [0,1] scale, so it must be applied AFTER
+    # normalization — both datasets should tie, not just the small-scale one.
+    raw_runs = pd.DataFrame(
+        [
+            {"model": "A", "dataset": "d_small", "seed": 0, "score": 0.52},
+            {"model": "B", "dataset": "d_small", "seed": 0, "score": 0.50},
+            {"model": "A", "dataset": "d_big", "seed": 0, "score": 52.0},
+            {"model": "B", "dataset": "d_big", "seed": 0, "score": 50.0},
+        ]
+    )
+    low = pd.Series({"d_small": 0.0, "d_big": 0.0})
+    high = pd.Series({"d_small": 1.0, "d_big": 100.0})
+
+    # Without bounds: threshold hits raw scores → d_big (raw gap 2) is decisive.
+    raw = compute_battles_from_runs(raw_runs, tie_threshold=0.05)
+    assert set(raw.loc[raw.dataset == "d_big", "outcome"]) == {1.0}
+
+    # With bounds: both normalized gaps are 0.02 < 0.05 → every battle ties.
+    norm = compute_battles_from_runs(
+        raw_runs, tie_threshold=0.05, norm_bounds=(low, high)
+    )
+    assert set(norm["outcome"]) == {0.5}
+
+
+def test_elo_ranking_tie_threshold_matches_winrate_matrix():
+    # Regression: on seeded data with datasets on different raw scales, the
+    # ELO ranking and the win-rate matrix must agree under tie_threshold.
+    # Both gaps normalize to 0.02 < 0.05, so both outputs must report a tie.
+    rows = []
+    for seed in [1, 2, 3]:
+        rows += [
+            {
+                "model": "A",
+                "dataset": "D1",
+                "metric": "acc",
+                "score": 0.52,
+                "seed": seed,
+            },
+            {
+                "model": "B",
+                "dataset": "D1",
+                "metric": "acc",
+                "score": 0.50,
+                "seed": seed,
+            },
+            {
+                "model": "A",
+                "dataset": "D2",
+                "metric": "acc",
+                "score": 52.0,
+                "seed": seed,
+            },
+            {
+                "model": "B",
+                "dataset": "D2",
+                "metric": "acc",
+                "score": 50.0,
+                "seed": seed,
+            },
+        ]
+    bench = evaluma.load_df(
+        pd.DataFrame(rows),
+        model="model",
+        dataset="dataset",
+        metric="metric",
+        score="score",
+        seed="seed",
+        norm_ref_low={"D1": 0.0, "D2": 0.0},
+        norm_ref_high={"D1": 1.0, "D2": 100.0},
+    )
+    res = bench.elo_ranking(tie_threshold=0.05, n_bootstrap=0)
+    elo = res.table.set_index("model")["ELO"]
+    assert elo["A"] == pytest.approx(elo["B"])
+    assert res.winrate_matrix.loc["A", "B"] == pytest.approx(0.5)
+
+
 def test_compute_elo_with_raw_runs():
     # raw_runs path should give same ranking direction as scores-only on consistent data
     raw_runs = _make_raw_runs(
