@@ -13,11 +13,15 @@
 
 # evaluma
 
-A small Python package for comparing machine learning models across benchmark suites. Given a CSV of per-model, per-dataset scores, evaluma can compute three complementary views of the results:
+A small Python package for comparing machine learning models across benchmark suites. Given a CSV of per-model, per-dataset scores, evaluma computes six complementary views of the results:
 
+- **Aggregate ranking** — point-estimate ranking via trimmed mean, mean, or median
 - **IQM ranking** — interquartile mean with bootstrapped confidence intervals, following [Agarwal et al. (2021)](https://arxiv.org/abs/2108.13264)
+- **ELO ranking** — MLE ELO ratings from pairwise head-to-head battles with bootstrap CIs and a win-rate matrix, following [Erickson et al. (2025)](https://arxiv.org/abs/2506.16791)
 - **Bayesian pairwise comparison** — posterior probabilities that model A beats model B (or is practically equivalent), via [baycomp](https://github.com/janezd/baycomp)
-- **Dolan-Moré performance profiles** — cumulative distribution of performance ratios and area-under-profile scores
+- **Frequentist comparison** — Friedman + Nemenyi (all-pairs) or Wilcoxon + Holm (reference model), following [Demšar (2006)](https://jmlr.org/papers/v7/demsar06a.html)
+- **Dolan-Moré performance profiles** — cumulative distribution of performance ratios and area-under-profile scores, following [Dolan & Moré (2002)](https://doi.org/10.1007/s101070100263)
+- **Rank sensitivity** — Kendall τ-b with bootstrap CI measuring whether rankings hold across two experimental conditions, following [Kendall (1945)](https://doi.org/10.1093/biomet/33.3.239)
 
 
 ## Documentation
@@ -54,36 +58,57 @@ bench = evaluma.load_df(
     score="score",
 )
 
-# IQM ranking with 95% bootstrap CI
+# Point-estimate aggregate ranking (trimmed mean)
+agg = bench.aggregate_ranking()
+print(agg.table)
+
+# IQM ranking with 95% bootstrap CI (requires seed column)
 iqm = bench.iqm_ranking()
 print(iqm.table)
 fig = iqm.plot()
 fig.savefig("iqm.png")
 
+# ELO ranking with win-rate matrix
+elo = bench.elo_ranking()
+print(elo.table)
+fig = elo.plot_winrate()
+
 # Bayesian pairwise probabilities
 bayes = bench.bayesian_comparison()
 print(bayes.table)
 
+# Frequentist comparison (Friedman + Nemenyi)
+freq = bench.frequentist_comparison()
+print(freq.table)
+
 # Dolan-Moré performance profiles
 profiles = bench.performance_profiles()
 fig = profiles.plot()
+
+# Rank sensitivity across two conditions
+bench_b = evaluma.load_df("results_b.csv", model="model", dataset="dataset",
+                          metric="metric", score="score")
+sens = bench.rank_sensitivity(bench_b, cond_a="condA", cond_b="condB")
+print(f"Kendall τ = {sens.tau:.3f}, 95% CI = {sens.tau_ci}")
 ```
 
 ### CLI
 
 ```bash
-# Run all three analyses and write six output files
+# Run aggregate, Bayesian, frequentist, and performance-profile analyses
 evaluma report results.csv \
     --model model --dataset dataset --metric metric --score score \
     --output results/
 
 # Individual subcommands
-evaluma rank    results.csv --model model --dataset dataset --metric metric --score score --output results/
-evaluma compare results.csv --model model --dataset dataset --metric metric --score score --output results/
-evaluma profiles results.csv --model model --dataset dataset --metric metric --score score --output results/
+evaluma aggregate   results.csv --model model --dataset dataset --metric metric --score score --output results/
+evaluma rank        results.csv --model model --dataset dataset --metric metric --score score --seed seed --output results/
+evaluma compare     results.csv --model model --dataset dataset --metric metric --score score --output results/
+evaluma frequentist results.csv --model model --dataset dataset --metric metric --score score --output results/
+evaluma profiles    results.csv --model model --dataset dataset --metric metric --score score --output results/
 ```
 
-Each subcommand writes a `.csv` table and a `.png` figure to `--output`.
+Each subcommand writes a `.csv` table and a `.png` figure to `--output`. ELO ranking and rank sensitivity are available via the Python API only.
 
 ### Column mapping
 
@@ -193,6 +218,15 @@ also cite the works of the underlying methods and frameworks used:
   year      = {2021},
 }
 
+@inproceedings{erickson2025tabarena,
+  title     = {{TabArena}: A Living Benchmark for Machine Learning on Tabular Data},
+  author    = {Erickson, Nick and Purucker, Lennart and Tschalzev, Andrej
+               and Holzm{\"u}ller, David and Mutalik Desai, Prabhant
+               and Salinas, David and Hutter, Frank},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2025},
+}
+
 @article{benavoli2017time,
   title   = {Time for a Change: a Tutorial for Comparing Multiple Classifiers
              Through Bayesian Analysis},
@@ -205,6 +239,15 @@ also cite the works of the underlying methods and frameworks used:
   year    = {2017},
 }
 
+@article{demsar2006statistical,
+  title   = {Statistical Comparisons of Classifiers over Multiple Data Sets},
+  author  = {Dem{\v{s}}ar, Janez},
+  journal = {Journal of Machine Learning Research},
+  volume  = {7},
+  pages   = {1--30},
+  year    = {2006},
+}
+
 @article{dolan2002benchmarking,
   title   = {Benchmarking Optimization Software with Performance Profiles},
   author  = {Dolan, Elizabeth D. and Mor{\'e}, Jorge J.},
@@ -212,5 +255,16 @@ also cite the works of the underlying methods and frameworks used:
   volume  = {91},
   pages   = {201--213},
   year    = {2002},
+}
+
+@article{kendall1945treatment,
+  title   = {The Treatment of Ties in Ranking Problems},
+  author  = {Kendall, Maurice G.},
+  journal = {Biometrika},
+  volume  = {33},
+  number  = {3},
+  pages   = {239--251},
+  year    = {1945},
+  doi     = {10.1093/biomet/33.3.239},
 }
 ```

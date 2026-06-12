@@ -17,7 +17,7 @@ You have evaluated the same set of models on the same benchmark under two differ
 :::{note}
 This tutorial covers rank-correlation analysis between two experimental conditions. For the aggregate rankings that feed into this analysis, see the [IQM ranking tutorial](iqm_ranking.md). For a direct probability statement ("how likely is Model-A to outperform Model-B on a new task?"), see the [Bayesian comparison tutorial](bayesian_comparison.md).
 :::
-ye
+
 ```{code-cell} python
 import warnings
 warnings.filterwarnings("ignore")
@@ -43,7 +43,7 @@ For n models ranked under two conditions, let $(x_i, y_i)$ be the rank pair for 
 
 $$\tau = \frac{C - D}{n(n-1)/2}$$
 
-where $C$ = number of concordant pairs and $D$ = number of discordant pairs. evaluma passes `method="auto"` to `scipy.stats.kendalltau`, which uses tau-b to handle ties.
+where $C$ = number of concordant pairs and $D$ = number of discordant pairs. evaluma passes `method="auto"` to `scipy.stats.kendalltau`, which uses the tau-b correction for ties ([Kendall, 1945](https://doi.org/10.1093/biomet/33.3.239)).
 :::
 
 evaluma also reports Spearman ρ alongside τ. ρ weights rank gaps by their magnitude rather than counting each pair equally, so it tends to be larger in magnitude than τ when the swap spans multiple rank positions.
@@ -241,5 +241,5 @@ For a worked example on real linear-probing benchmark data comparing LBFGS and A
 
 ### References
 
-- Kendall, M. G. (1938). A new measure of rank correlation. *Biometrika, 30*(1–2), 81–93.
+- Kendall, M. G. (1945). The treatment of ties in ranking problems. *Biometrika, 33*(3), 239–251. <https://doi.org/10.1093/biomet/33.3.239>
 - Agarwal, R., Schwarzer, M., Castro, P. S., Courville, A. C., & Bellemare, M. G. (2021). [Deep reinforcement learning at the edge of the statistical precipice.](https://arxiv.org/abs/2108.13264) *Advances in Neural Information Processing Systems, 34*.
