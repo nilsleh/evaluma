@@ -31,11 +31,13 @@ def _scores(data: dict, datasets=None) -> pd.DataFrame:
 
 
 def test_battles_count():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7, 0.6],
-        "B": [0.5, 0.6, 0.4, 0.5],
-        "C": [0.2, 0.3, 0.25, 0.35],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7, 0.6],
+            "B": [0.5, 0.6, 0.4, 0.5],
+            "C": [0.2, 0.3, 0.25, 0.35],
+        }
+    )
     battles = compute_battles(scores)
     M, N = 3, 4
     assert len(battles) == M * (M - 1) // 2 * N
@@ -45,26 +47,34 @@ def test_battles_columns():
     scores = _scores({"A": [0.9, 0.8], "B": [0.5, 0.6]})
     battles = compute_battles(scores)
     assert battles.columns.tolist() == [
-        "model_a", "model_b", "outcome", "dataset", "weight"
+        "model_a",
+        "model_b",
+        "outcome",
+        "dataset",
+        "weight",
     ]
 
 
 def test_battles_outcome_binary():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     battles = compute_battles(scores, tie_threshold=None)
     assert set(battles["outcome"].unique()).issubset({0.0, 1.0})
 
 
 def test_battles_weight_per_dataset():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     battles = compute_battles(scores)
     for d in scores.columns.tolist():
         total = battles[battles["dataset"] == d]["weight"].sum()
@@ -111,32 +121,38 @@ def test_battles_small_diff_above_threshold_kept():
 
 
 def test_winrate_matrix_shape():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     assert wm.shape == (3, 3)
 
 
 def test_winrate_diagonal_nan():
-    scores = _scores({
-        "A": [0.9, 0.8],
-        "B": [0.5, 0.6],
-        "C": [0.2, 0.3],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8],
+            "B": [0.5, 0.6],
+            "C": [0.2, 0.3],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     for model in wm.index:
         assert pd.isna(wm.loc[model, model])
 
 
 def test_winrate_symmetry():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     models = wm.index.tolist()
     for i in models:
@@ -146,21 +162,25 @@ def test_winrate_symmetry():
 
 
 def test_winrate_dominant_model():
-    scores = _scores({
-        "A": [0.9, 0.9, 0.9],
-        "B": [0.5, 0.5, 0.5],
-        "C": [0.2, 0.2, 0.2],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.9, 0.9],
+            "B": [0.5, 0.5, 0.5],
+            "C": [0.2, 0.2, 0.2],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     assert wm.loc["A"].dropna().eq(1.0).all()
 
 
 def test_winrate_sorted_by_avg():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     avg = wm.mean(axis=1, skipna=True)
     assert avg.is_monotonic_decreasing
@@ -168,21 +188,25 @@ def test_winrate_sorted_by_avg():
 
 def test_winrate_exact_value():
     # A beats B on d0 and d2, B beats A on d1 → win-rate A vs B = 2/3
-    scores = _scores({
-        "A": [0.9, 0.4, 0.9],
-        "B": [0.5, 0.8, 0.5],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.4, 0.9],
+            "B": [0.5, 0.8, 0.5],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     assert wm.loc["A", "B"] == pytest.approx(2 / 3)
     assert wm.loc["B", "A"] == pytest.approx(1 / 3)
 
 
 def test_winrate_index_equals_columns():
-    scores = _scores({
-        "A": [0.9, 0.8],
-        "B": [0.5, 0.6],
-        "C": [0.2, 0.3],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8],
+            "B": [0.5, 0.6],
+            "C": [0.2, 0.3],
+        }
+    )
     wm = compute_winrate_matrix(scores)
     assert wm.index.tolist() == wm.columns.tolist()
 
@@ -201,22 +225,26 @@ def test_winrate_tie_threshold_gives_half():
 
 
 def test_fit_elo_correct_ordering():
-    scores = _scores({
-        "A": [0.9, 0.9, 0.9, 0.9, 0.9],
-        "B": [0.5, 0.5, 0.5, 0.5, 0.5],
-        "C": [0.1, 0.1, 0.1, 0.1, 0.1],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.9, 0.9, 0.9, 0.9],
+            "B": [0.5, 0.5, 0.5, 0.5, 0.5],
+            "C": [0.1, 0.1, 0.1, 0.1, 0.1],
+        }
+    )
     battles = compute_battles(scores)
     ratings = _fit_elo(battles)
     assert ratings["A"] > ratings["B"] > ratings["C"]
 
 
 def test_fit_elo_symmetric_models():
-    scores = _scores({
-        "A": [0.5, 0.5, 0.5, 0.5],
-        "B": [0.5, 0.5, 0.5, 0.5],
-        "C": [0.5, 0.5, 0.5, 0.5],
-    })
+    scores = _scores(
+        {
+            "A": [0.5, 0.5, 0.5, 0.5],
+            "B": [0.5, 0.5, 0.5, 0.5],
+            "C": [0.5, 0.5, 0.5, 0.5],
+        }
+    )
     battles = compute_battles(scores)
     # All equal → no battles; must pass models explicitly when battles is empty
     ratings = _fit_elo(battles, models=scores.index.tolist())
@@ -232,11 +260,13 @@ def test_fit_elo_returns_series():
 
 
 def test_fit_elo_all_models_present():
-    scores = _scores({
-        "A": [0.9, 0.8, 0.7],
-        "B": [0.5, 0.6, 0.4],
-        "C": [0.2, 0.3, 0.25],
-    })
+    scores = _scores(
+        {
+            "A": [0.9, 0.8, 0.7],
+            "B": [0.5, 0.6, 0.4],
+            "C": [0.2, 0.3, 0.25],
+        }
+    )
     battles = compute_battles(scores)
     ratings = _fit_elo(battles)
     assert set(ratings.index) == {"A", "B", "C"}
@@ -244,10 +274,12 @@ def test_fit_elo_all_models_present():
 
 def test_fit_elo_total_dominance_fallback():
     # A wins every single battle — logistic regression degenerates, fallback fires
-    scores = _scores({
-        "A": [1.0, 1.0, 1.0, 1.0, 1.0],
-        "B": [0.0, 0.0, 0.0, 0.0, 0.0],
-    })
+    scores = _scores(
+        {
+            "A": [1.0, 1.0, 1.0, 1.0, 1.0],
+            "B": [0.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
     battles = compute_battles(scores)
     ratings = _fit_elo(battles)
     assert isinstance(ratings, pd.Series)
@@ -261,11 +293,13 @@ def test_fit_elo_total_dominance_fallback():
 
 
 def _bench_scores():
-    return _scores({
-        "A": [0.9, 0.8, 0.7, 0.85, 0.95],
-        "B": [0.5, 0.6, 0.4, 0.55, 0.45],
-        "C": [0.2, 0.3, 0.25, 0.15, 0.35],
-    })
+    return _scores(
+        {
+            "A": [0.9, 0.8, 0.7, 0.85, 0.95],
+            "B": [0.5, 0.6, 0.4, 0.55, 0.45],
+            "C": [0.2, 0.3, 0.25, 0.15, 0.35],
+        }
+    )
 
 
 def test_compute_elo_table_schema():
@@ -416,11 +450,14 @@ def test_winrate_matrix_tie_counts_half():
 
 def test_fit_elo_handles_tie_outcome():
     # A always beats C; A ties B; B always beats C → A >= B > C
-    battles = pd.DataFrame([
-        ("A", "B", 0.5, "d1", 1.0),
-        ("A", "C", 1.0, "d1", 1.0),
-        ("B", "C", 1.0, "d1", 1.0),
-    ], columns=["model_a", "model_b", "outcome", "dataset", "weight"])
+    battles = pd.DataFrame(
+        [
+            ("A", "B", 0.5, "d1", 1.0),
+            ("A", "C", 1.0, "d1", 1.0),
+            ("B", "C", 1.0, "d1", 1.0),
+        ],
+        columns=["model_a", "model_b", "outcome", "dataset", "weight"],
+    )
     ratings = _fit_elo(battles)
     assert ratings["A"] >= ratings["B"]
     assert ratings["B"] > ratings["C"]
@@ -438,32 +475,43 @@ def _make_raw_runs(models, datasets, seeds, scores_fn):
     for model in models:
         for dataset in datasets:
             for seed in seeds:
-                rows.append({
-                    "model": model,
-                    "dataset": dataset,
-                    "seed": seed,
-                    "score": scores_fn(model, dataset, seed),
-                })
+                rows.append(
+                    {
+                        "model": model,
+                        "dataset": dataset,
+                        "seed": seed,
+                        "score": scores_fn(model, dataset, seed),
+                    }
+                )
     return pd.DataFrame(rows)
 
 
 def test_compute_battles_from_runs_basic():
     # 3 models × 2 datasets × 2 seeds → 3 pairs × 2 seeds × 2 datasets = 12 battles
     raw_runs = _make_raw_runs(
-        ["A", "B", "C"], ["d1", "d2"], [0, 1],
+        ["A", "B", "C"],
+        ["d1", "d2"],
+        [0, 1],
         lambda m, d, s: {"A": 0.9, "B": 0.6, "C": 0.3}[m],
     )
     battles = compute_battles_from_runs(raw_runs)
     assert len(battles) == 3 * 2 * 2
     assert battles.columns.tolist() == [
-        "model_a", "model_b", "outcome", "dataset", "seed", "weight"
+        "model_a",
+        "model_b",
+        "outcome",
+        "dataset",
+        "seed",
+        "weight",
     ]
 
 
 def test_compute_battles_from_runs_weight_sum():
     # Each dataset should contribute total weight = 1.0
     raw_runs = _make_raw_runs(
-        ["A", "B", "C"], ["d1", "d2"], [0, 1, 2],
+        ["A", "B", "C"],
+        ["d1", "d2"],
+        [0, 1, 2],
         lambda m, d, s: {"A": 0.9, "B": 0.6, "C": 0.3}[m],
     )
     battles = compute_battles_from_runs(raw_runs)
@@ -475,7 +523,9 @@ def test_compute_battles_from_runs_weight_sum():
 def test_compute_battles_from_runs_metric_direction():
     # With direction "min", lower score = better; A has lower score → should win
     raw_runs = _make_raw_runs(
-        ["A", "B"], ["d1"], [0],
+        ["A", "B"],
+        ["d1"],
+        [0],
         lambda m, d, s: 0.1 if m == "A" else 0.9,
     )
     battles = compute_battles_from_runs(raw_runs, metric_direction={"d1": "min"})
@@ -487,7 +537,9 @@ def test_compute_battles_from_runs_metric_direction():
 
 def test_compute_battles_from_runs_tie():
     raw_runs = _make_raw_runs(
-        ["A", "B"], ["d1"], [0],
+        ["A", "B"],
+        ["d1"],
+        [0],
         lambda m, d, s: 0.5,
     )
     battles = compute_battles_from_runs(raw_runs)
@@ -497,7 +549,9 @@ def test_compute_battles_from_runs_tie():
 def test_compute_elo_with_raw_runs():
     # raw_runs path should give same ranking direction as scores-only on consistent data
     raw_runs = _make_raw_runs(
-        ["A", "B", "C"], ["d1", "d2", "d3"], [0, 1],
+        ["A", "B", "C"],
+        ["d1", "d2", "d3"],
+        [0, 1],
         lambda m, d, s: {"A": 0.9, "B": 0.6, "C": 0.3}[m] + s * 0.01,
     )
     scores_data = raw_runs.groupby(["model", "dataset"])["score"].mean().unstack()

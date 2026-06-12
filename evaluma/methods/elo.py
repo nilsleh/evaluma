@@ -137,9 +137,7 @@ def _fit_elo(
     from sklearn.linear_model import LogisticRegression
 
     if models is None:
-        models = pd.concat(
-            [battles["model_a"], battles["model_b"]]
-        ).unique().tolist()
+        models = pd.concat([battles["model_a"], battles["model_b"]]).unique().tolist()
 
     if len(battles) == 0:
         return pd.Series(
@@ -328,12 +326,18 @@ def compute_elo(
 
     if n_bootstrap == 0:
         models = point_ratings.index.tolist()
-        table = pd.DataFrame({
-            "model": models,
-            "ELO": point_ratings.values,
-            "CI_low": np.nan,
-            "CI_high": np.nan,
-        }).sort_values("ELO", ascending=False).reset_index(drop=True)
+        table = (
+            pd.DataFrame(
+                {
+                    "model": models,
+                    "ELO": point_ratings.values,
+                    "CI_low": np.nan,
+                    "CI_high": np.nan,
+                }
+            )
+            .sort_values("ELO", ascending=False)
+            .reset_index(drop=True)
+        )
         return table, winrate_matrix
 
     rng = np.random.default_rng(random_state)
@@ -365,12 +369,14 @@ def compute_elo(
     ci_high = np.percentile(boot_ratings, 97.5, axis=0)
 
     table = (
-        pd.DataFrame({
-            "model": models,
-            "ELO": point_ratings.values,
-            "CI_low": ci_low,
-            "CI_high": ci_high,
-        })
+        pd.DataFrame(
+            {
+                "model": models,
+                "ELO": point_ratings.values,
+                "CI_low": ci_low,
+                "CI_high": ci_high,
+            }
+        )
         .sort_values("ELO", ascending=False)
         .reset_index(drop=True)
     )

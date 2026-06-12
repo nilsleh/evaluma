@@ -17,7 +17,7 @@ matplotlib.use("Agg")
 def _make_scores_matrix(scores_dict, datasets=None):
     if datasets is None:
         n = len(next(iter(scores_dict.values())))
-        datasets = [f"d{i+1}" for i in range(n)]
+        datasets = [f"d{i + 1}" for i in range(n)]
     return pd.DataFrame(scores_dict, index=datasets).T
 
 
