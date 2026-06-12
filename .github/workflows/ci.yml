@@ -36,6 +36,8 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    env:
+      IPYTHONDIR: ${{ runner.temp }}/ipython
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

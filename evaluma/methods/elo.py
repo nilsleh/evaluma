@@ -164,21 +164,23 @@ def _fit_elo(
     Y = battles["outcome"].values.astype(np.float64)
     W = battles["weight"].values.astype(np.float64)
 
+    # Bake log(base) into the design matrix (TabArena convention) so the
+    # logistic coefficients land directly on the ELO scale via `scale * coef`.
+    log_base = np.log(base)
     for k, (_, row) in enumerate(battles.iterrows()):
         i = model_idx[row["model_a"]]
         j = model_idx[row["model_b"]]
-        X[k, i] = 1.0
-        X[k, j] = -1.0
+        X[k, i] = log_base
+        X[k, j] = -log_base
 
     try:
         unique_y = np.unique(Y)
         if len(unique_y) < 2:
             raise ValueError("single class")
-        clf = LogisticRegression(fit_intercept=False, max_iter=1000, C=1e9)
+        clf = LogisticRegression(fit_intercept=False, max_iter=1000, C=1e6)
         clf.fit(X, Y, sample_weight=W)
-        logit_ratings = clf.coef_[0]
-        # Convert logit coefficients to ELO scale
-        elo_ratings = logit_ratings * scale * np.log10(base)
+        # Convert logit coefficients to ELO scale (TabArena: elo = scale * coef).
+        elo_ratings = clf.coef_[0] * scale
         elo_ratings = elo_ratings - elo_ratings.mean() + init_rating
     except Exception:
         logger.warning("MLE ELO failed; falling back to iterative ELO (K=32).")

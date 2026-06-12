@@ -237,6 +237,22 @@ def test_fit_elo_correct_ordering():
     assert ratings["A"] > ratings["B"] > ratings["C"]
 
 
+def test_fit_elo_standard_scale():
+    # A beats B at empirical rate 0.75 over many battles. On the standard ELO
+    # scale the gap must equal 400*log10(p/(1-p)) ≈ 190.85, matching TabArena.
+    # Guards against the logit→ELO conversion being off by a factor of ln(base).
+    n = 4000
+    rng = np.random.default_rng(0)
+    wins = rng.random(n) < 0.75
+    battles = pd.DataFrame(
+        [("A", "B", 1.0 if w else 0.0, 0, 1.0) for w in wins],
+        columns=["model_a", "model_b", "outcome", "dataset", "weight"],
+    )
+    ratings = _fit_elo(battles, models=["A", "B"])
+    expected = 400 * np.log10(0.75 / 0.25)
+    assert (ratings["A"] - ratings["B"]) == pytest.approx(expected, rel=0.02)
+
+
 def test_fit_elo_symmetric_models():
     scores = _scores(
         {
