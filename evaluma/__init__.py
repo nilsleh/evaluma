@@ -1,8 +1,12 @@
 import pandas as pd
 
 from evaluma._version import __version__  # noqa: F401
-from evaluma.benchmark import Benchmark  # noqa: F401
-from evaluma.results import FrequentistResult  # noqa: F401
+from evaluma.benchmark import Benchmark, BenchmarkGroup  # noqa: F401
+from evaluma.results import (  # noqa: F401
+    EloResult,
+    FrequentistResult,
+    RankSensitivityResult,
+)
 
 
 def load_df(
@@ -18,8 +22,9 @@ def load_df(
     norm_ref_high=None,
     metric_direction=None,
     drop_incomplete=False,
+    condition_col=None,
 ):
-    """Load a DataFrame and return a ready-to-use Benchmark object.
+    """Load a DataFrame and return a Benchmark or BenchmarkGroup.
 
     Args:
         df: A pandas DataFrame in long format (one row per model/dataset pair).
@@ -53,14 +58,19 @@ def load_df(
             before normalization so that higher is always better.
         drop_incomplete: If ``True``, silently drop models with missing
             scores instead of raising.
+        condition_col: Optional column used to split rows into multiple
+            condition-specific benchmarks with independent normalization.
 
     Returns:
-        Benchmark: Normalized benchmark ready for analysis.
+        Benchmark | BenchmarkGroup: Normalized benchmark object(s) ready
+            for analysis.
 
     Raises:
         TypeError: If ``df`` is not a pandas DataFrame.
         ValueError: If ``metric_type_bounds`` is provided together with
             ``norm_ref_low`` or ``norm_ref_high``.
+        ValueError: If ``condition_col`` is provided but fewer than two
+            unique condition labels are present.
         ValueError: If the data contains more than one metric per
             (model, dataset) pair, or if the score matrix is incomplete
             and ``drop_incomplete`` is ``False``.
@@ -74,6 +84,32 @@ def load_df(
             f"load_df() expects a pandas DataFrame, got {type(df).__name__}. "
             "To load from a file, use evaluma.load_csv()."
         )
+
+    if condition_col is not None:
+        conditions = df[condition_col].drop_duplicates().tolist()
+        if len(conditions) < 2:
+            raise ValueError(
+                f"condition_col={condition_col!r} requires at least 2 unique "
+                f"conditions; got {len(conditions)}."
+            )
+        groups = {}
+        for cond in conditions:
+            subset = df[df[condition_col] == cond].reset_index(drop=True)
+            groups[cond] = load_df(
+                subset,
+                model=model,
+                dataset=dataset,
+                metric=metric,
+                score=score,
+                seed=seed,
+                metric_type_bounds=metric_type_bounds,
+                norm_ref_low=norm_ref_low,
+                norm_ref_high=norm_ref_high,
+                metric_direction=metric_direction,
+                drop_incomplete=drop_incomplete,
+                condition_col=None,
+            )
+        return BenchmarkGroup(groups)
 
     if metric_type_bounds is not None and (
         norm_ref_low is not None or norm_ref_high is not None
@@ -157,8 +193,9 @@ def load_csv(
     norm_ref_high=None,
     metric_direction=None,
     drop_incomplete=False,
+    condition_col=None,
 ):
-    """Load a benchmark CSV file and return a ready-to-use Benchmark object.
+    """Load a benchmark CSV file and return a Benchmark or BenchmarkGroup.
 
     Args:
         path: Path to the CSV file.
@@ -172,9 +209,11 @@ def load_csv(
         norm_ref_high: See :func:`evaluma.load_df`.
         metric_direction: See :func:`evaluma.load_df`.
         drop_incomplete: See :func:`evaluma.load_df`.
+        condition_col: See :func:`evaluma.load_df`.
 
     Returns:
-        Benchmark: Normalized benchmark ready for analysis.
+        Benchmark | BenchmarkGroup: Normalized benchmark object(s) ready
+            for analysis.
     """
     df = pd.read_csv(path)
     return load_df(
@@ -189,6 +228,7 @@ def load_csv(
         norm_ref_high=norm_ref_high,
         metric_direction=metric_direction,
         drop_incomplete=drop_incomplete,
+        condition_col=condition_col,
     )
 
 

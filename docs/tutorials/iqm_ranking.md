@@ -12,7 +12,7 @@ kernelspec:
 
 # Ranking Models Across a Benchmark: From Mean to IQM
 
-Suppose you have spent a week running five models across eight datasets with different tasks spanning one or more tasks like classification, segmentation, and regression. The experiment runs are finished and you now ask yourself: "which model is best across these diverse tasks and which model should I deploy?" You might average the metric rows per model across the dataset. The averaged ranking yields a winner, however, on further inspection you notice that this particular model dominates only because it scores well on a couple of datasets that may or may not have a different metric range compared to the 0-1 range of other metrics. This can be a common pitfall in foundation model evaluation that target good performance across a whole range of diverse tasks with different metrics. In this tutorial we will cover some methods that help us draw a more accurate picture of aggregate performance.
+You have run a set of models across a benchmark and need a single aggregate ranking. Averaging the raw scores is the obvious first step, but it has two failure modes: metrics on different scales assign weight by numeric range rather than model quality, and lower-is-better metrics like RMSE reward higher values when averaged raw. This tutorial covers normalization and three aggregation methods — mean, trimmed mean, and IQM — that illustrate a set of tools to have some first insights into cross-dataset performance of models.
 
 :::{note}
 This tutorial covers normalization, mean aggregation, trimmed mean aggregation, and bootstrap confidence intervals from multiple seeds.
@@ -34,9 +34,9 @@ import evaluma
 (normalization)=
 ## 1. Why normalization comes first
 
-Before you can aggregate scores across datasets, they need to live on a common scale *and* share a common direction. Raw aggregation fails in two distinct ways: (1) **scale** — when one dataset reports accuracy in [0, 1] and another reports RMSE that can reach 100, an unweighted mean hands the RMSE dataset arbitrary leverage simply because its metric range is larger; (2) **direction** — when a metric is lower-is-better, a raw mean treats a large value as good, so a model with high RMSE is rewarded rather than penalised.
+Aggregate scores only make sense when all scores live on a common scale and point in the same direction. When one dataset reports accuracy in [0, 1] and another reports RMSE that can reach 100, an unweighted mean is dominated by the RMSE dataset simply because its numeric range is larger. Direction compounds the problem: a raw mean treats higher as always better, so a model with high RMSE gets rewarded for what is actually poor performance.
 
-### The 3×3 toy
+### The 3×3 toy example
 
 To illustrate this, we will look at a small toy example with three models and three datasets.
 
@@ -71,11 +71,11 @@ raw_means = (
 raw_means
 ```
 
-Model-2 ranks first for two compounding reasons. **Scale**: its RMSE of 45 dwarfs any accuracy or F1 score in [0, 1], so the raw mean is dominated by whichever model has the largest absolute value. **Direction**: a raw mean treats higher as better — so Model-2's RMSE of 45 is counted as a large positive contribution even though it is the *worst* performer on Dataset-C. Strip Dataset-C out and Model-2 has the lowest accuracy and middling F1. Both problems vanish once we normalize: map each dataset to a common [0, 1] scale, and flip lower-is-better metrics so that higher always means better.
+Model-2 ranks first because its RMSE of 45 dwarfs the accuracy and F1 scores in [0, 1], giving it outsized weight in the raw mean regardless of model quality. The direction problem layers on top: because higher is treated as better, that RMSE of 45 counts as a large positive contribution even though it represents the worst performance on Dataset-C. Normalization resolves both issues by mapping each dataset to a common [0, 1] scale and flipping lower-is-better metrics so that higher always means better.
 
 ### Loading with evaluma
 
-The `evaluma.load_df()` function includes some arguments to directly enable this normalization workflow that applies per-dataset min-max normalization. Passing `metric_direction={"Dataset-C": "min"}` negates RMSE scores before normalizing so that lower RMSE maps to a higher normalized value. The `norm_ref_low` / `norm_ref_high` arguments set the scale endpoints per dataset.
+`evaluma.load_df()` handles both steps: passing `metric_direction={"Dataset-C": "min"}` negates RMSE before normalization so that lower RMSE maps to a higher normalized value, and `norm_ref_low` / `norm_ref_high` set the scale endpoints per dataset.
 
 ```{code-cell} python
 bench_toy = evaluma.load_df(
@@ -116,7 +116,7 @@ use `metric_type_bounds`. evaluma emits a `UserWarning` when bounds are not prov
 
 For a benchmark where all datasets use the same metric and all scores already lie in a common range, mean aggregation is a natural starting point. The 5-model × 8-dataset synthetic benchmark below uses accuracy throughout (higher is better, scores in [0.13, 0.97]).
 
-Two models have a bimodal score distribution: **Model-A** is strong on three datasets (D01–D03 ≈ 0.95) and weak on the remaining five (D04–D08 ≈ 0.42). **Model-B** is the mirror image — weak on D01–D03 (≈ 0.15) and strong on D04–D08 (≈ 0.82). Models C, D, and E are stable across all datasets.
+Two models have a bimodal score distribution: Model-A is strong on three datasets (D01–D03 ≈ 0.95) and weak on the remaining five (D04–D08 ≈ 0.42), while Model-B is the mirror image, weak on D01–D03 (≈ 0.15) and strong on D04–D08 (≈ 0.82). Models C, D, and E are stable across all datasets.
 
 ```{code-cell} python
 rng = np.random.RandomState(42)
@@ -166,7 +166,7 @@ mean_ranking["mean"] = mean_ranking["mean"].round(3)
 mean_ranking
 ```
 
-We have now correctly normalized the performance per dataset, however, we should not blindly rely on this aggregation to make our conclusions. For example, if we look closer at the per-dataset performance, we will see a different story.
+The normalized mean ranking places Model-C first. However, the aggregate ranking can hide important information that only a more careful per-dataset look reveals.
 
 (ranking-fallacy)=
 ## 3. When mean misleads
@@ -200,9 +200,9 @@ plt.show()
 
 From the bar plot we can see that Model-A (blue) dominates the other models on datasets D01–D03 on the left. However, on the remaining five datasets it performs strictly worse than all other models. Its overall strong mean ranking is almost entirely a product of those first three datasets.
 
-**Model-B** (green) shows the mirror image. It dips to 0.13–0.17 on D01–D03, then scores well above Model-A on D04–D08, where five of the eight datasets live. Its mean is *suppressed* by the same three datasets that inflate Model-A's.
+Model-B (green) shows the mirror image. It dips to 0.13–0.17 on D01–D03, then scores well above Model-A on D04–D08, where five of the eight datasets live. Its mean is suppressed by the same three datasets that inflate Model-A's.
 
-Mean aggregation treats all eight datasets as equally informative about a model's typical performance. Three outlier datasets move the aggregate ranking in ways that have nothing to do with how a model performs on representative tasks.
+Mean aggregation treats all eight datasets as equally informative about a model's typical performance. Three outlier datasets move the aggregate ranking in ways that might obscure how a model performs on representative tasks.
 
 :::{note}
 This failure mode arises whenever any model has a bimodal score distribution across the benchmark, where it performs strong on a few tasks and considerably weaker on the others. Mean aggregation cannot tell the difference between a model that's consistently mediocre and one that's strong on most tasks but has
@@ -268,17 +268,15 @@ comparison = (
 comparison.sort_values("trimmed_rank").reset_index(drop=True)
 ```
 
-Reading across the rows tells a clear story about what each aggregation method reveals:
+Model-A drops from second by mean to last by trimmed mean. After trimming, two of its three high-scoring outlier datasets (≈ 0.95–0.97) are removed along with two of its low-scoring stable datasets (≈ 0.40), leaving a middle four that averages to about 0.55. By median the score falls further to ≈ 0.43, reflecting its typical performance on the five representative datasets.
 
-**Model-A** ranks 2nd by mean but falls to last by trimmed mean. After trimming, its two lowest-scoring stable datasets (≈ 0.40) and two of its three high-outlier datasets (≈ 0.95–0.97) are removed. The surviving middle 4 includes one high-outlier dataset (≈ 0.945) and three stable datasets — averaging to about 0.55, not the 0.95 its mean implied. By median the score drops to ≈ 0.43, the typical performance on the five representative datasets.
+Model-B moves in the opposite direction. Its three low-scoring outlier datasets (≈ 0.13–0.17) suppress the mean, but after trimming only one survives in the middle four alongside three strong datasets (≈ 0.81). Median bypasses the low outliers entirely and returns ≈ 0.81, moving Model-B to first place.
 
-**Model-B** reverses entirely: last by mean, 2nd by trimmed mean, and 1st by median. Its three low-outlier datasets (≈ 0.13–0.17) suppress the mean, but after trimming only one of them survives in the middle 4 alongside three strong datasets (≈ 0.81). Median, which discards 50% of data from each end, fully bypasses the low outliers and returns ≈ 0.81 — Model-B's typical performance on five of its eight datasets.
-
-**Model-C** is stable and ranks first by mean and trimmed mean. Median moves it to second (behind Model-B) but its score barely changes. **Models D and E** move at most one position in any direction; their scores are uniform so no aggregation method can distinguish them by much.
+Model-C is stable throughout, ranking first by mean and trimmed mean and second by median with almost no change in score. Models D and E shift at most one position; their uniform scores mean no aggregation method can separate them by much.
 
 The median is not a strict improvement over trimmed mean — by discarding 50% of data it throws away half the benchmark's representative tasks entirely. Trimmed mean is a principled middle ground: aggressive enough to neutralize true outliers while retaining more of the benchmark's evidence. The consistent direction of the B vs A reversal across both methods is itself informative: it signals that the reversal is genuine and not an artefact of a particular trimming threshold.
 
-Additionally, it should be noted that one should be careful drawing task specific performance information from these aggregate statistics. If one cares about specific task performance of a model, but informs their model choice by aggregate statistics, it might lead to subpar results. So in practice the question of which model to pick for specific tasks needs to be carefully weighed under multiple viewpoints.
+Aggregate rankings summarize performance across the whole benchmark and can obscure large differences in how models perform on individual tasks. A model that ranks well overall may underperform on the tasks that matter most for a specific application, so it is worth checking per-dataset scores alongside the aggregate before making a deployment decision.
 
 (seed-bootstrap-cis)=
 ## 5. Statistical inference with multiple seeds

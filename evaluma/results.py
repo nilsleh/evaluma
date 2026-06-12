@@ -2,6 +2,57 @@ import numpy as np
 import pandas as pd
 
 
+class EloResult:
+    """Result of :meth:`~evaluma.benchmark.Benchmark.elo_ranking`."""
+
+    def __init__(self, table: pd.DataFrame, winrate_matrix: pd.DataFrame):
+        """Args:
+        table: DataFrame with columns ``model``, ``ELO``, ``CI_low``,
+            ``CI_high``.
+        winrate_matrix: M×M DataFrame of empirical win fractions (diagonal
+            NaN), sorted by descending average win-rate.
+        """
+        self.table = table
+        self.winrate_matrix = winrate_matrix
+
+    def plot(self, figsize=None, model_colors=None, title=None, ax=None):
+        """Render ELO ratings as a horizontal bar chart with CI error bars.
+
+        Args:
+            figsize: Figure size ``(width, height)`` in inches.
+            model_colors: List of colors, one per model in table order.
+            title: Optional axes title.
+            ax: Existing axes to draw into; a new figure is created if
+                ``None``.
+
+        Returns:
+            matplotlib.figure.Figure: The rendered figure.
+        """
+        from evaluma.plot import plot_elo_ranking
+
+        return plot_elo_ranking(
+            self.table, figsize=figsize, model_colors=model_colors, title=title, ax=ax
+        )
+
+    def plot_winrate(self, figsize=None, title=None, ax=None):
+        """Render the win-rate matrix as an annotated heatmap.
+
+        Args:
+            figsize: Figure size ``(width, height)`` in inches.
+            title: Optional axes title.
+            ax: Existing axes to draw into; a new figure is created if
+                ``None``.
+
+        Returns:
+            matplotlib.figure.Figure: The rendered figure.
+        """
+        from evaluma.plot import plot_winrate_matrix
+
+        return plot_winrate_matrix(
+            self.winrate_matrix, figsize=figsize, title=title, ax=ax
+        )
+
+
 class AggregateResult:
     """Result of :meth:`~evaluma.benchmark.Benchmark.aggregate_ranking`."""
 
@@ -163,6 +214,7 @@ class FrequentistResult:
             )
         from evaluma.plot import plot_cd_diagram
 
+        assert self.cd is not None  # always set in all-pairs mode
         return plot_cd_diagram(self.avg_ranks, self.cd, title=title)
 
 
@@ -233,4 +285,60 @@ class ProfileResult:
 
         return plot_performance_profiles(
             self.table, figsize=figsize, model_colors=model_colors, title=title, ax=ax
+        )
+
+
+class RankSensitivityResult:
+    """Result of rank-sensitivity analysis between two conditions."""
+
+    def __init__(
+        self,
+        tau: float,
+        tau_ci: tuple[float, float],
+        rho: float,
+        table: pd.DataFrame,
+        cond_a: str,
+        cond_b: str,
+    ):
+        """Initialize rank-sensitivity result container.
+
+        Args:
+            tau: Kendall tau rank correlation.
+            tau_ci: 95% bootstrap CI for ``tau`` as ``(low, high)``.
+            rho: Spearman rho rank correlation.
+            table: DataFrame with columns ``model``, ``rank_{cond_a}``,
+                ``rank_{cond_b}``, ``delta_rank``.
+            cond_a: Condition A label.
+            cond_b: Condition B label.
+        """
+        self.tau = float(tau)
+        self.tau_ci = (float(tau_ci[0]), float(tau_ci[1]))
+        self.rho = float(rho)
+        self.table = table
+        self.cond_a = cond_a
+        self.cond_b = cond_b
+
+    def plot(self, figsize=None, title=None, ax=None):
+        """Render rank_a vs rank_b scatter with identity line and labels.
+
+        Args:
+            figsize: Figure size ``(width, height)`` in inches.
+            title: Optional axes title.
+            ax: Existing axes to draw into; a new figure is created if
+                ``None``.
+
+        Returns:
+            matplotlib.figure.Figure: The rendered figure.
+        """
+        from evaluma.plot import plot_rank_sensitivity
+
+        return plot_rank_sensitivity(
+            self.table,
+            self.tau,
+            self.tau_ci,
+            self.cond_a,
+            self.cond_b,
+            figsize=figsize,
+            title=title,
+            ax=ax,
         )

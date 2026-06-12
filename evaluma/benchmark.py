@@ -72,6 +72,16 @@ class Benchmark:
             raw_runs=raw_runs,
         )
 
+    @property
+    def models_(self):
+        """Model names in row order."""
+        return self._raw.index.tolist()
+
+    @property
+    def datasets_(self):
+        """Dataset names in column order."""
+        return self._raw.columns.tolist()
+
     def select_models(self, models):
         """Subset the benchmark to the given models.
 
@@ -88,6 +98,18 @@ class Benchmark:
             )
         return self._new(self._raw.loc[models], raw_runs=raw_runs)
 
+    def drop_models(self, exclude):
+        """Subset the benchmark by dropping specific models.
+
+        Args:
+            exclude: List of model names to remove.
+
+        Returns:
+            Benchmark: New benchmark without the excluded models.
+        """
+        keep = [m for m in self.models_ if m not in set(exclude)]
+        return self.select_models(keep)
+
     def select_datasets(self, datasets):
         """Subset the benchmark to the given datasets.
 
@@ -103,6 +125,18 @@ class Benchmark:
                 self._raw_runs["dataset"].isin(datasets)
             ].reset_index(drop=True)
         return self._new(self._raw[datasets], raw_runs=raw_runs)
+
+    def drop_datasets(self, exclude):
+        """Subset the benchmark by dropping specific datasets.
+
+        Args:
+            exclude: List of dataset names to remove.
+
+        Returns:
+            Benchmark: New benchmark without the excluded datasets.
+        """
+        keep = [d for d in self.datasets_ if d not in set(exclude)]
+        return self.select_datasets(keep)
 
     def drop_incomplete(self):
         """Remove models that have missing scores for any dataset.
@@ -236,6 +270,51 @@ class Benchmark:
 
         return compute_frequentist(self.scores_, reference=reference, alpha=alpha)
 
+    def elo_ranking(
+        self,
+        n_bootstrap=1000,
+        random_state=None,
+        tie_threshold=None,
+        calibration_model=None,
+    ):
+        """Compute MLE ELO rankings with battle-within-task bootstrap CIs.
+
+        Derives a scalar ELO rating per model from pairwise win/loss battles
+        across datasets. Each dataset contributes equally via sample weighting.
+        Complements ``aggregate_ranking()`` and ``iqm_ranking()`` with a
+        pairwise-derived ranking.
+
+        Args:
+            n_bootstrap: Number of bootstrap replicates for 95% CI. Set to 0
+                to skip bootstrap (CI columns will be NaN).
+            random_state: Seed for the random number generator.
+            tie_threshold: Minimum score difference (on the [0,1] normalized
+                scale) to emit a battle. Pairs within the threshold are skipped.
+                ``None`` means strict inequality.
+            calibration_model: If given, shift all ratings so this model has
+                ELO = 1000.
+
+        Returns:
+            EloResult: Result with ``.table``, ``.winrate_matrix``, ``.plot()``,
+                and ``.plot_winrate()``.
+
+        Raises:
+            ValueError: If ``calibration_model`` is not in the score matrix.
+        """
+        from evaluma.methods.elo import compute_elo
+        from evaluma.results import EloResult
+
+        table, winrate_matrix = compute_elo(
+            self.scores_,
+            n_bootstrap=n_bootstrap,
+            random_state=random_state,
+            tie_threshold=tie_threshold,
+            calibration_model=calibration_model,
+            raw_runs=self._raw_runs,
+            metric_direction=self._metric_direction,
+        )
+        return EloResult(table, winrate_matrix)
+
     def performance_profiles(self):
         """Compute Dolan-Moré performance profiles.
 
@@ -251,3 +330,184 @@ class Benchmark:
         from evaluma.methods.profiles import compute_profiles
 
         return compute_profiles(self._raw, metric_direction=self._metric_direction)
+
+    def rank_sensitivity(
+        self,
+        other,
+        cond_a,
+        cond_b,
+        n_bootstrap=1000,
+        random_state=None,
+    ):
+        """Quantify whether rankings reorder between two conditions.
+
+        Args:
+            other: Benchmark for condition B.
+            cond_a: Label for this benchmark's condition.
+            cond_b: Label for ``other`` benchmark's condition.
+            n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
+            random_state: Seed for bootstrap sampling.
+
+        Returns:
+            RankSensitivityResult: Rank sensitivity result object.
+
+        Raises:
+            TypeError: If ``other`` is not a :class:`Benchmark`.
+            ValueError: If model or dataset sets differ across benchmarks.
+        """
+        import warnings
+
+        from evaluma.methods.rank_sensitivity import compute_rank_sensitivity
+
+        if not isinstance(other, Benchmark):
+            raise TypeError(f"other must be a Benchmark, got {type(other).__name__}.")
+
+        models_a = set(self.scores_.index)
+        models_b = set(other.scores_.index)
+        missing_in_b = sorted(models_a - models_b)
+        missing_in_a = sorted(models_b - models_a)
+        if missing_in_a or missing_in_b:
+            parts = []
+            if missing_in_b:
+                parts.append(f"missing from {cond_b}: {missing_in_b}")
+            if missing_in_a:
+                parts.append(f"missing from {cond_a}: {missing_in_a}")
+            raise ValueError("Model mismatch between conditions: " + "; ".join(parts))
+
+        datasets_a = set(self.scores_.columns)
+        datasets_b = set(other.scores_.columns)
+        missing_ds_in_b = sorted(datasets_a - datasets_b)
+        missing_ds_in_a = sorted(datasets_b - datasets_a)
+        if missing_ds_in_a or missing_ds_in_b:
+            parts = []
+            if missing_ds_in_b:
+                parts.append(f"missing from {cond_b}: {missing_ds_in_b}")
+            if missing_ds_in_a:
+                parts.append(f"missing from {cond_a}: {missing_ds_in_a}")
+            raise ValueError("Dataset mismatch between conditions: " + "; ".join(parts))
+
+        if len(datasets_a) < 5:
+            warnings.warn(
+                f"Only {len(datasets_a)} datasets provided; bootstrap CI may be wide.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        aligned_other = other.scores_.loc[self.scores_.index, self.scores_.columns]
+        return compute_rank_sensitivity(
+            self.scores_,
+            aligned_other,
+            cond_a=cond_a,
+            cond_b=cond_b,
+            n_bootstrap=n_bootstrap,
+            random_state=random_state,
+        )
+
+
+class BenchmarkGroup:
+    """Collection of condition-keyed Benchmark objects."""
+
+    def __init__(self, benchmarks):
+        """Initialize a condition-keyed benchmark container.
+
+        Args:
+            benchmarks: Mapping from condition label to :class:`Benchmark`.
+
+        Raises:
+            ValueError: If fewer than two conditions are provided.
+        """
+        if len(benchmarks) < 2:
+            raise ValueError(
+                f"BenchmarkGroup requires at least 2 conditions; got {len(benchmarks)}."
+            )
+        self._benchmarks = dict(benchmarks)
+
+    def __getitem__(self, key):
+        """Return the benchmark for one condition label.
+
+        Args:
+            key: Condition label key.
+
+        Returns:
+            Benchmark: Benchmark associated with ``key``.
+
+        Raises:
+            KeyError: If ``key`` is not present.
+        """
+        return self._benchmarks[key]
+
+    def rank_sensitivity(self, cond_a, cond_b, n_bootstrap=1000, random_state=None):
+        """Run rank-sensitivity analysis between two conditions in the group.
+
+        Args:
+            cond_a: Condition A label.
+            cond_b: Condition B label.
+            n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
+            random_state: Seed for bootstrap sampling.
+
+        Returns:
+            RankSensitivityResult: Rank sensitivity result object.
+
+        Raises:
+            KeyError: If either condition label is missing.
+            ValueError: If the two benchmarks have mismatched model/dataset sets.
+        """
+        return self[cond_a].rank_sensitivity(
+            self[cond_b],
+            cond_a=cond_a,
+            cond_b=cond_b,
+            n_bootstrap=n_bootstrap,
+            random_state=random_state,
+        )
+
+    def select_models(self, models):
+        """Select the same model subset across all conditions.
+
+        Args:
+            models: List of model names to retain.
+
+        Returns:
+            BenchmarkGroup: New group with selected models in each benchmark.
+        """
+        return BenchmarkGroup(
+            {k: b.select_models(models) for k, b in self._benchmarks.items()}
+        )
+
+    def drop_models(self, exclude):
+        """Drop the same model subset across all conditions.
+
+        Args:
+            exclude: List of model names to remove.
+
+        Returns:
+            BenchmarkGroup: New group with excluded models removed.
+        """
+        return BenchmarkGroup(
+            {k: b.drop_models(exclude) for k, b in self._benchmarks.items()}
+        )
+
+    def select_datasets(self, datasets):
+        """Select the same dataset subset across all conditions.
+
+        Args:
+            datasets: List of dataset names to retain.
+
+        Returns:
+            BenchmarkGroup: New group with selected datasets in each benchmark.
+        """
+        return BenchmarkGroup(
+            {k: b.select_datasets(datasets) for k, b in self._benchmarks.items()}
+        )
+
+    def drop_datasets(self, exclude):
+        """Drop the same dataset subset across all conditions.
+
+        Args:
+            exclude: List of dataset names to remove.
+
+        Returns:
+            BenchmarkGroup: New group with excluded datasets removed.
+        """
+        return BenchmarkGroup(
+            {k: b.drop_datasets(exclude) for k, b in self._benchmarks.items()}
+        )

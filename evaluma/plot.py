@@ -447,3 +447,163 @@ def plot_performance_profiles(
     if title:  # pragma: no cover
         ax.set_title(title)
     return fig
+
+
+def plot_rank_sensitivity(
+    table: pd.DataFrame,
+    tau: float,
+    tau_ci: tuple[float, float],
+    cond_a: str,
+    cond_b: str,
+    *,
+    figsize=None,
+    title=None,
+    ax=None,
+):
+    """Render rank-sensitivity scatter for two conditions.
+
+    Args:
+        table: DataFrame with ``model``, ``rank_{cond_a}``, ``rank_{cond_b}``,
+            and ``delta_rank``.
+        tau: Kendall tau statistic.
+        tau_ci: 95% bootstrap CI tuple ``(low, high)``.
+        cond_a: Condition A label.
+        cond_b: Condition B label.
+        figsize: Figure size ``(width, height)`` in inches.
+        title: Optional axes title.
+        ax: Existing axes to draw into; a new figure is created if ``None``.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize or (5, 5))
+    else:
+        fig = ax.get_figure()
+
+    rank_a_col = f"rank_{cond_a}"
+    rank_b_col = f"rank_{cond_b}"
+    x = table[rank_a_col].to_numpy(dtype=float)
+    y = table[rank_b_col].to_numpy(dtype=float)
+    labels = table["model"].astype(str).tolist()
+
+    ax.scatter(x, y, s=45)
+    for xi, yi, model in zip(x, y, labels):
+        ax.text(xi + 0.03, yi + 0.03, model, fontsize=9)
+
+    lo = float(min(x.min(), y.min()) - 0.4)
+    hi = float(max(x.max(), y.max()) + 0.4)
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="black", linewidth=1)
+
+    ci_low, ci_high = tau_ci
+    ci_text = (
+        f"[{ci_low:.2f}, {ci_high:.2f}]"
+        if np.isfinite(ci_low) and np.isfinite(ci_high)
+        else "[nan, nan]"
+    )
+    default_title = f"Kendall tau = {tau:.2f} (95% CI {ci_text})"
+    ax.set_title(title or default_title)
+    ax.set_xlabel(f"Rank ({cond_a})")
+    ax.set_ylabel(f"Rank ({cond_b})")
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    return fig
+
+
+def plot_elo_ranking(
+    table: pd.DataFrame, *, figsize=None, model_colors=None, title=None, ax=None
+):
+    """Render ELO ratings as a horizontal bar chart with CI error bars.
+
+    Args:
+        table: DataFrame with columns ``model``, ``ELO``, ``CI_low``,
+            ``CI_high`` as produced by :func:`~evaluma.methods.elo.compute_elo`.
+        figsize: Figure size ``(width, height)`` in inches.
+        model_colors: List of colors, one per model in row order.
+        title: Optional axes title.
+        ax: Existing axes to draw into; a new figure is created if ``None``.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize or (6, 3))
+    else:
+        fig = ax.get_figure()
+
+    models = table["model"].tolist()
+    elos = table["ELO"].values
+    has_ci = not table["CI_low"].isna().all()
+
+    xerr = None
+    if has_ci:
+        ci_low = table["CI_low"].values
+        ci_high = table["CI_high"].values
+        xerr = np.vstack([elos - ci_low, ci_high - elos])
+
+    colors = model_colors or [f"C{i}" for i in range(len(models))]
+    y_pos = np.arange(len(models))
+    ax.barh(y_pos, elos, xerr=xerr, color=colors, align="center", capsize=4)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(models)
+    ax.set_xlabel("ELO")
+    if title:
+        ax.set_title(title)
+    return fig
+
+
+def plot_winrate_matrix(
+    winrate_matrix: pd.DataFrame, *, figsize=None, title=None, ax=None
+):
+    """Render an M×M win-rate matrix as an annotated heatmap.
+
+    Args:
+        winrate_matrix: Square DataFrame as returned by
+            :func:`~evaluma.methods.elo.compute_winrate_matrix`. Diagonal
+            is NaN; off-diagonal cells are win fractions in [0, 1].
+        figsize: Figure size ``(width, height)`` in inches.
+        title: Optional axes title.
+        ax: Existing axes to draw into; a new figure is created if ``None``.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    models = winrate_matrix.index.tolist()
+    n = len(models)
+    matrix = winrate_matrix.values.astype(float)
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize or (max(4, n), max(3, n - 1)))
+    else:
+        fig = ax.get_figure()
+
+    im = ax.imshow(matrix, vmin=0, vmax=1, cmap="RdYlGn", aspect="equal")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(models, rotation=45, ha="right")
+    ax.set_yticklabels(models)
+
+    for i in range(n):
+        for j in range(n):
+            val = matrix[i, j]
+            if np.isnan(val):
+                continue
+            text_color = "black" if 0.3 < val < 0.7 else "white"
+            ax.text(
+                j,
+                i,
+                f"{val:.2f}",
+                ha="center",
+                va="center",
+                fontsize=9,
+                color=text_color,
+            )
+
+    ax.set_xlabel("Opponent")
+    ax.set_ylabel("Model")
+    if title:
+        ax.set_title(title)
+    return fig
