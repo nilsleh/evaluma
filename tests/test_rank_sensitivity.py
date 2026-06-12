@@ -129,12 +129,12 @@ def test_group_drop_models_preserves_rank_sensitivity():
         )
         assert actual.tau == pytest.approx(expected.tau)
         assert actual.rho == pytest.approx(expected.rho)
-        exp_ranks = (
-            expected.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
-        )
-        act_ranks = (
-            actual.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
-        )
+        exp_ranks = expected.table.set_index("model")[
+            ["rank_Adam", "rank_SGD"]
+        ].sort_index()
+        act_ranks = actual.table.set_index("model")[
+            ["rank_Adam", "rank_SGD"]
+        ].sort_index()
         pd.testing.assert_frame_equal(act_ranks, exp_ranks)
 
 
@@ -155,12 +155,12 @@ def test_group_drop_datasets_preserves_rank_sensitivity():
         )
         assert actual.tau == pytest.approx(expected.tau)
         assert actual.rho == pytest.approx(expected.rho)
-        exp_ranks = (
-            expected.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
-        )
-        act_ranks = (
-            actual.table.set_index("model")[["rank_Adam", "rank_SGD"]].sort_index()
-        )
+        exp_ranks = expected.table.set_index("model")[
+            ["rank_Adam", "rank_SGD"]
+        ].sort_index()
+        act_ranks = actual.table.set_index("model")[
+            ["rank_Adam", "rank_SGD"]
+        ].sort_index()
         pd.testing.assert_frame_equal(act_ranks, exp_ranks)
 
 

@@ -39,9 +39,7 @@ def test_drop_models_freezes_bounds():
         warnings.simplefilter("ignore", UserWarning)
         parent = _make_bench_unbounded(_ADVERSARIAL, _ADVERSARIAL_DATASETS)
         dropped = parent.drop_models(["C"])
-        pd.testing.assert_frame_equal(
-            dropped.scores_, parent.scores_.loc[["A", "B"]]
-        )
+        pd.testing.assert_frame_equal(dropped.scores_, parent.scores_.loc[["A", "B"]])
         order_parent = parent.aggregate_ranking().table["model"].tolist()
         order_dropped = dropped.aggregate_ranking().table["model"].tolist()
         ab_parent = [m for m in order_parent if m in ("A", "B")]
@@ -68,9 +66,7 @@ def test_drop_models_freezes_bounds_min_direction():
             metric_direction={d: "min" for d in _ADVERSARIAL_DATASETS},
         )
         dropped = parent.drop_models(["C"])
-        pd.testing.assert_frame_equal(
-            dropped.scores_, parent.scores_.loc[["A", "B"]]
-        )
+        pd.testing.assert_frame_equal(dropped.scores_, parent.scores_.loc[["A", "B"]])
 
 
 def test_select_datasets_freezes_bounds():
