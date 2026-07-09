@@ -475,8 +475,10 @@ def test_fit_elo_handles_tie_outcome():
         columns=["model_a", "model_b", "outcome", "dataset", "weight"],
     )
     ratings = _fit_elo(battles)
-    assert ratings["A"] >= ratings["B"]
-    assert ratings["B"] > ratings["C"]
+    # This symmetric case can pick up tiny sklearn solver noise across
+    # environments, so assert an effective tie rather than exact equality.
+    assert ratings["A"] == pytest.approx(ratings["B"], abs=0.1)
+    assert min(ratings["A"], ratings["B"]) > ratings["C"]
     assert ratings.notna().all()
 
 
