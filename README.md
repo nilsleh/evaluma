@@ -13,11 +13,12 @@
 
 # evaluma
 
-A small Python package for comparing machine learning models across benchmark suites. Given a CSV of per-model, per-dataset scores, evaluma computes six complementary views of the results:
+A small Python package for comparing machine learning models across benchmark suites. Given a CSV of per-model, per-dataset scores, evaluma computes eight complementary views of the results:
 
 - **Aggregate ranking** — point-estimate ranking via trimmed mean, mean, or median
 - **IQM ranking** — interquartile mean with bootstrapped confidence intervals, following [Agarwal et al. (2021)](https://arxiv.org/abs/2108.13264)
 - **ELO ranking** — MLE ELO ratings from pairwise head-to-head battles with bootstrap CIs and a win-rate matrix, following [Erickson et al. (2025)](https://arxiv.org/abs/2506.16791)
+- **Improvability ranking** — mean percent error reduction each model needs to match the per-dataset best, in raw error space, following [TabArena](https://arxiv.org/abs/2506.16791) / [BeyondArena](https://arxiv.org/abs/2606.30410)
 - **Bayesian pairwise comparison** — posterior probabilities that model A beats model B (or is practically equivalent), via [baycomp](https://github.com/janezd/baycomp)
 - **Frequentist comparison** — Friedman + Nemenyi (all-pairs) or Wilcoxon + Holm (reference model), following [Demšar (2006)](https://jmlr.org/papers/v7/demsar06a.html)
 - **Dolan-Moré performance profiles** — cumulative distribution of performance ratios and area-under-profile scores, following [Dolan & Moré (2002)](https://doi.org/10.1007/s101070100263)
@@ -72,6 +73,11 @@ fig.savefig("iqm.png")
 elo = bench.elo_ranking()
 print(elo.table)
 fig = elo.plot_winrate()
+
+# Improvability ranking (mean % error reduction needed to match the best)
+imp = bench.improvability_ranking()
+print(imp.table)
+fig = imp.plot()
 
 # Bayesian pairwise probabilities
 bayes = bench.bayesian_comparison()

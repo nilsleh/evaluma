@@ -1,5 +1,6 @@
 from functools import cached_property
 
+import numpy as np
 import pandas as pd
 
 from evaluma.normalize import normalize
@@ -20,6 +21,7 @@ class Benchmark:
         norm_ref_high=None,
         metric_direction=None,
         raw_runs=None,
+        dataset_metric_map=None,
     ):
         """Initialize and normalize the score matrix.
 
@@ -38,12 +40,16 @@ class Benchmark:
                 ``["model", "dataset", "seed", "score"]`` containing
                 per-seed scores. When provided, ``iqm_ranking()`` uses
                 stratified bootstrap over seeds.
+            dataset_metric_map: Dict mapping dataset names to their metric
+                name, used by ``improvability_ranking()`` to resolve each
+                dataset's error optimum from the metric registry.
         """
         self._raw = raw_matrix
         self._norm_ref_low = norm_ref_low
         self._norm_ref_high = norm_ref_high
         self._metric_direction = metric_direction
         self._raw_runs = raw_runs
+        self._dataset_metric_map = dataset_metric_map
 
     def _normalize(self, matrix):
         import warnings
@@ -84,6 +90,7 @@ class Benchmark:
             norm_ref_high=high,
             metric_direction=self._metric_direction,
             raw_runs=raw_runs,
+            dataset_metric_map=self._dataset_metric_map,
         )
 
     @property
@@ -239,6 +246,68 @@ class Benchmark:
 
         return compute_aggregate(self.scores_, agg=agg)
 
+    def improvability_ranking(self):
+        """Rank models by mean improvability (distance from the per-dataset best).
+
+        For each model, reports the average percent error reduction needed to
+        match the best method on each dataset, faithful to the TabArena /
+        BeyondArena definition. Error is reconstructed in raw score space from
+        each dataset's metric direction and theoretical optimum (from the metric
+        registry) — never from the normalized ``scores_`` matrix. Lower is
+        better; the per-dataset best method scores ``0``.
+
+        Optima are resolved lazily here (not at load time), so benchmarks whose
+        metrics have no defined optimum still load and serve other methods.
+
+        Returns:
+            ImprovabilityResult: Result with ``.table``, ``.per_dataset``, and
+                ``.plot()``.
+
+        Raises:
+            ValueError: If a dataset's metric is not in the registry and is not
+                explicitly overridden as ``"min"`` in ``metric_direction``, or
+                if its error optimum cannot be resolved.
+        """
+        from evaluma.methods.improvability import compute_improvability
+        from evaluma.metric_registry import get_direction, get_error_optimum
+
+        override = self._metric_direction or {}
+        metric_map = self._dataset_metric_map or {}
+
+        direction_map = {}
+        optimum_map = {}
+        for dataset in self._raw.columns:
+            metric_name = metric_map.get(dataset)
+            if override.get(dataset) == "min":
+                # A "min" column is an error already bottoming out at 0, so its
+                # metric name (possibly a raw score name) must not force a 1.0
+                # optimum: honor the overridden direction here.
+                direction, optimum = "min", 0.0
+            elif metric_name is None:
+                raise ValueError(
+                    f"No metric known for dataset '{dataset}'; cannot compute "
+                    "improvability. Improvability currently supports known "
+                    "registry metrics, or datasets explicitly marked "
+                    "metric_direction='min' so they are treated as error "
+                    "columns with optimum 0."
+                )
+            else:
+                try:
+                    direction = override.get(dataset) or get_direction(metric_name)
+                    optimum = get_error_optimum(metric_name)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Cannot compute improvability for dataset '{dataset}' "
+                        f"(metric '{metric_name}'): {e} Improvability currently "
+                        "supports known registry metrics, or datasets "
+                        "explicitly marked metric_direction='min' so they are "
+                        "treated as error columns with optimum 0."
+                    ) from e
+            direction_map[dataset] = direction
+            optimum_map[dataset] = optimum
+
+        return compute_improvability(self._raw, direction_map, optimum_map)
+
     def bayesian_comparison(
         self, rope=0.01, reference=None, pairs=None, random_state=None
     ):
@@ -368,6 +437,88 @@ class Benchmark:
 
         return compute_profiles(self._raw, metric_direction=self._metric_direction)
 
+    def _validate_callable_rank_vector(self, ranks: pd.Series) -> pd.Series:
+        """Validate and align a custom ranker's output.
+
+        The callable-ranker contract is intentionally narrow: it must return a
+        numeric ``pd.Series`` indexed by this benchmark's models, where lower
+        values are better and ``1`` denotes the best rank.
+
+        Args:
+            ranks: Candidate rank vector returned by a custom ranker.
+
+        Returns:
+            pd.Series: Float rank vector aligned to ``self.models_`` order.
+
+        Raises:
+            TypeError: If ``ranks`` is not a numeric ``pd.Series``.
+            ValueError: If the series index does not match the benchmark's
+                model set, or if any rank value is missing / non-finite.
+        """
+        if not isinstance(ranks, pd.Series):
+            raise TypeError(
+                "Custom ranker must return a pandas Series indexed by model."
+            )
+
+        expected = set(self.models_)
+        actual = set(ranks.index)
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        if missing or extra:
+            parts = []
+            if missing:
+                parts.append(f"missing models: {missing}")
+            if extra:
+                parts.append(f"unexpected models: {extra}")
+            raise ValueError(
+                "Custom ranker must return ranks for exactly this benchmark's "
+                "models; " + "; ".join(parts)
+            )
+
+        aligned = ranks.loc[self.models_]
+        if not pd.api.types.is_numeric_dtype(aligned):
+            raise TypeError("Custom ranker must return numeric rank values.")
+
+        aligned = aligned.astype(float)
+        if aligned.isna().any() or not np.isfinite(aligned.to_numpy()).all():
+            raise ValueError(
+                "Custom ranker must return finite rank values for every model."
+            )
+        return aligned
+
+    def _rank_vector(self, ranker):
+        """Per-model rank Series (rank 1 = best) under a named or custom ranker.
+
+        Args:
+            ranker: ``"avg_rank"`` (mean of per-dataset ranks), ``"elo"``
+                (MLE ELO rating), ``"improvability"`` (mean error reduction to
+                the per-dataset best), or a callable ``bench -> pd.Series``
+                returning literal per-model ranks indexed by model.
+
+        Returns:
+            pd.Series: Per-model ranks (rank 1 = best) indexed by model.
+
+        Raises:
+            TypeError: If a callable ``ranker`` does not return a numeric
+                ``pd.Series`` indexed by model.
+            ValueError: If ``ranker`` is an unknown name.
+        """
+        if callable(ranker):
+            return self._validate_callable_rank_vector(ranker(self))
+        if ranker == "avg_rank":
+            keys = self.scores_.rank(ascending=False, axis=0).mean(axis=1)
+            return keys.rank(ascending=True, method="average")
+        if ranker == "elo":
+            keys = self.elo_ranking(n_bootstrap=0).table.set_index("model")["ELO"]
+            return keys.rank(ascending=False, method="average")
+        if ranker == "improvability":
+            table = self.improvability_ranking().table.set_index("model")
+            return table["improvability"].rank(ascending=True, method="average")
+        raise ValueError(
+            f"Unknown ranker {ranker!r}; expected 'avg_rank', 'elo', "
+            "'improvability', or a callable."
+        )
+
     def rank_sensitivity(
         self,
         other,
@@ -376,6 +527,7 @@ class Benchmark:
         n_bootstrap=1000,
         random_state=None,
         agg="trimmed_mean",
+        ranker="aggregate",
     ):
         """Quantify whether rankings reorder between two conditions.
 
@@ -384,11 +536,21 @@ class Benchmark:
             cond_a: Label for this benchmark's condition.
             cond_b: Label for ``other`` benchmark's condition.
             n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
+                Only used when ``ranker="aggregate"``.
             random_state: Seed for bootstrap sampling.
-            agg: Per-model aggregation defining the ranking. Defaults to
-                ``"trimmed_mean"`` to match :meth:`aggregate_ranking`;
-                ``"mean"`` is available for light-tailed or very-small-N data,
-                and ``"median"`` is also accepted.
+            agg: Per-model aggregation defining the ranking when
+                ``ranker="aggregate"``. Defaults to ``"trimmed_mean"`` to match
+                :meth:`aggregate_ranking`; ``"mean"`` is available for
+                light-tailed or very-small-N data, and ``"median"`` is also
+                accepted.
+            ranker: Ranking method whose two orderings tau compares.
+                ``"aggregate"`` (default) uses ``agg`` on the normalized score
+                matrix with a bootstrap CI — the original behavior. ``"avg_rank"``,
+                ``"elo"``, ``"improvability"``, or a callable
+                ``bench -> pd.Series`` decouple the ranking from the aggregate
+                family and return a point estimate (``tau_ci=(nan, nan)``).
+                Custom callables must return literal numeric ranks indexed by
+                model, with lower values better and ``1`` meaning best.
 
         Returns:
             RankSensitivityResult: Rank sensitivity result object.
@@ -399,7 +561,10 @@ class Benchmark:
         """
         import warnings
 
-        from evaluma.methods.rank_sensitivity import compute_rank_sensitivity
+        from evaluma.methods.rank_sensitivity import (
+            compute_rank_sensitivity,
+            compute_rank_sensitivity_from_ranks,
+        )
 
         if not isinstance(other, Benchmark):
             raise TypeError(f"other must be a Benchmark, got {type(other).__name__}.")
@@ -427,6 +592,22 @@ class Benchmark:
             if missing_ds_in_a:
                 parts.append(f"missing from {cond_a}: {missing_ds_in_a}")
             raise ValueError("Dataset mismatch between conditions: " + "; ".join(parts))
+
+        if ranker != "aggregate":
+            label = ranker if isinstance(ranker, str) else "custom"
+            if n_bootstrap > 0:
+                warnings.warn(
+                    f"n_bootstrap={n_bootstrap} is ignored for ranker={label!r}; "
+                    "a bootstrap CI is only produced for ranker='aggregate'. "
+                    "Returning a point estimate with tau_ci=(nan, nan).",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            rank_a = self._rank_vector(ranker)
+            rank_b = other._rank_vector(ranker)
+            return compute_rank_sensitivity_from_ranks(
+                rank_a, rank_b, cond_a, cond_b, agg=label
+            )
 
         if len(datasets_a) < 5:
             msg = f"Only {len(datasets_a)} datasets provided; bootstrap CI may be wide."
@@ -483,7 +664,13 @@ class BenchmarkGroup:
         return self._benchmarks[key]
 
     def rank_sensitivity(
-        self, cond_a, cond_b, n_bootstrap=1000, random_state=None, agg="trimmed_mean"
+        self,
+        cond_a,
+        cond_b,
+        n_bootstrap=1000,
+        random_state=None,
+        agg="trimmed_mean",
+        ranker="aggregate",
     ):
         """Run rank-sensitivity analysis between two conditions in the group.
 
@@ -491,10 +678,16 @@ class BenchmarkGroup:
             cond_a: Condition A label.
             cond_b: Condition B label.
             n_bootstrap: Number of dataset-bootstrap replicates for 95% CI.
+                Only used when ``ranker="aggregate"``.
             random_state: Seed for bootstrap sampling.
-            agg: Per-model aggregation defining the ranking. Defaults to
-                ``"trimmed_mean"`` to match :meth:`Benchmark.aggregate_ranking`;
-                ``"mean"`` is available for light-tailed or very-small-N data.
+            agg: Per-model aggregation defining the ranking when
+                ``ranker="aggregate"``. Defaults to ``"trimmed_mean"`` to
+                match :meth:`Benchmark.aggregate_ranking`; ``"mean"`` is
+                available for light-tailed or very-small-N data.
+            ranker: Same ranking selector supported by
+                :meth:`Benchmark.rank_sensitivity`. ``"aggregate"`` preserves
+                the original grouped behavior; alternate rankers return point
+                estimates with ``tau_ci=(nan, nan)``.
 
         Returns:
             RankSensitivityResult: Rank sensitivity result object.
@@ -510,6 +703,7 @@ class BenchmarkGroup:
             n_bootstrap=n_bootstrap,
             random_state=random_state,
             agg=agg,
+            ranker=ranker,
         )
 
     def select_models(self, models):

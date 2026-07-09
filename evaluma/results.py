@@ -82,6 +82,40 @@ class AggregateResult:
         )
 
 
+class ImprovabilityResult:
+    """Result of :meth:`~evaluma.benchmark.Benchmark.improvability_ranking`."""
+
+    def __init__(self, table: pd.DataFrame, per_dataset: pd.DataFrame):
+        """Args:
+        table: DataFrame with columns ``model`` and ``improvability``,
+            sorted ascending (lower is closer to the per-dataset best).
+        per_dataset: Long-format diagnostic DataFrame with columns
+            ``model``, ``dataset``, ``error``, ``best_error``,
+            ``improvability``.
+        """
+        self.table = table
+        self.per_dataset = per_dataset
+
+    def plot(self, figsize=None, model_colors=None, title=None, ax=None):
+        """Render a horizontal bar chart of mean improvability.
+
+        Args:
+            figsize: Figure size ``(width, height)`` in inches.
+            model_colors: List of colors, one per model in table order.
+            title: Optional axes title.
+            ax: Existing axes to draw into; a new figure is created if
+                ``None``.
+
+        Returns:
+            matplotlib.figure.Figure: The rendered figure.
+        """
+        from evaluma.plot import plot_improvability_ranking
+
+        return plot_improvability_ranking(
+            self.table, figsize=figsize, model_colors=model_colors, title=title, ax=ax
+        )
+
+
 class IQMResult:
     """Result of :meth:`~evaluma.benchmark.Benchmark.iqm_ranking`."""
 
@@ -308,11 +342,13 @@ class RankSensitivityResult:
             tau_ci: 95% bootstrap CI for ``tau`` as ``(low, high)``.
             rho: Spearman rho rank correlation.
             table: DataFrame with columns ``model``, ``rank_{cond_a}``,
-                ``rank_{cond_b}``, ``delta_rank``.
+                ``rank_{cond_b}``, ``delta_rank`` where the rank columns hold
+                literal rank values (rank 1 = best).
             cond_a: Condition A label.
             cond_b: Condition B label.
-            agg: Per-model aggregation used to define the ranking
-                (``"trimmed_mean"``, ``"mean"``, or ``"median"``).
+            agg: Ranking provenance label used to define the rank vectors
+                (for example ``"trimmed_mean"``, ``"elo"``,
+                ``"improvability"``, or ``"custom"``).
         """
         self.tau = float(tau)
         self.tau_ci = (float(tau_ci[0]), float(tau_ci[1]))

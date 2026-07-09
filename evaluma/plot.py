@@ -37,6 +37,40 @@ def plot_aggregate_ranking(
     return fig
 
 
+def plot_improvability_ranking(
+    table: pd.DataFrame, *, figsize=None, model_colors=None, title=None, ax=None
+):
+    """Render mean improvability as a horizontal bar chart (no CI whiskers).
+
+    Args:
+        table: DataFrame with columns ``model`` and ``improvability``, in
+            ascending (best-first) order.
+        figsize: Figure size ``(width, height)`` in inches.
+        model_colors: List of colors, one per model in row order.
+        title: Optional axes title.
+        ax: Existing axes to draw into; a new figure is created if ``None``.
+
+    Returns:
+        matplotlib.figure.Figure: The rendered figure.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize or (6, 3))
+    else:
+        fig = ax.get_figure()
+
+    models = table["model"].tolist()
+    improvability = table["improvability"].values
+    colors = model_colors or [f"C{i}" for i in range(len(models))]
+    y_pos = np.arange(len(models))
+    ax.barh(y_pos, improvability, color=colors, align="center")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(models)
+    ax.set_xlabel("Improvability (%)")
+    if title:  # pragma: no cover
+        ax.set_title(title)
+    return fig
+
+
 def plot_iqm_ranking(
     table: pd.DataFrame, *, figsize=None, model_colors=None, title=None, ax=None
 ):
@@ -465,7 +499,8 @@ def plot_rank_sensitivity(
 
     Args:
         table: DataFrame with ``model``, ``rank_{cond_a}``, ``rank_{cond_b}``,
-            and ``delta_rank``.
+            and ``delta_rank``. The rank columns are assumed to hold literal
+            rank values, with ``1`` meaning best.
         tau: Kendall tau statistic.
         tau_ci: 95% bootstrap CI tuple ``(low, high)``.
         cond_a: Condition A label.
@@ -473,8 +508,8 @@ def plot_rank_sensitivity(
         figsize: Figure size ``(width, height)`` in inches.
         title: Optional axes title.
         ax: Existing axes to draw into; a new figure is created if ``None``.
-        agg: Aggregation label appended to the default title (e.g.
-            ``"trimmed_mean"``); omitted from the title when ``None``.
+        agg: Ranking provenance label appended to the default title (for
+            example ``"trimmed_mean"`` or ``"elo"``); omitted when ``None``.
 
     Returns:
         matplotlib.figure.Figure: The rendered figure.
@@ -506,7 +541,7 @@ def plot_rank_sensitivity(
     )
     default_title = f"Kendall tau = {tau:.2f} (95% CI {ci_text})"
     if agg is not None:
-        default_title += f", agg={agg}"
+        default_title += f", ranking={agg}"
     ax.set_title(title or default_title)
     ax.set_xlabel(f"Rank ({cond_a})")
     ax.set_ylabel(f"Rank ({cond_b})")
