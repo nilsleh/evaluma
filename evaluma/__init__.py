@@ -5,6 +5,7 @@ from evaluma.benchmark import Benchmark, BenchmarkGroup  # noqa: F401
 from evaluma.results import (  # noqa: F401
     EloResult,
     FrequentistResult,
+    ImprovabilityResult,
     RankSensitivityResult,
 )
 
@@ -163,10 +164,11 @@ def load_df(
         raw_matrix = df.pivot(index="model", columns="dataset", values="score")
     raw_matrix.columns.name = None
 
+    dataset_metric_map = (
+        df.drop_duplicates("dataset").set_index("dataset")["metric"].to_dict()
+    )
+
     if metric_type_bounds is not None:
-        dataset_metric_map = (
-            df.drop_duplicates("dataset").set_index("dataset")["metric"].to_dict()
-        )
         norm_ref_low, norm_ref_high, metric_direction = _resolve_metric_type_bounds(
             metric_type_bounds, dataset_metric_map, raw_matrix, metric_direction
         )
@@ -177,6 +179,7 @@ def load_df(
         norm_ref_high=norm_ref_high,
         metric_direction=metric_direction,
         raw_runs=raw_runs,
+        dataset_metric_map=dataset_metric_map,
     )
 
 

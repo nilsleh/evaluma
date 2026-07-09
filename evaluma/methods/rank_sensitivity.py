@@ -60,6 +60,82 @@ def _ranks_from_scores(scores: pd.DataFrame, agg="trimmed_mean") -> pd.Series:
     return _aggregate_scores(scores, agg=agg).rank(ascending=False, method="average")
 
 
+def _delta_table(
+    rank_a: pd.Series, rank_b: pd.Series, cond_a_str: str, cond_b_str: str
+) -> pd.DataFrame:
+    """Build the sorted per-model ``delta_rank`` table from two rank vectors.
+
+    Args:
+        rank_a: Condition A per-model ranks (rank 1 = best), indexed by model.
+        rank_b: Condition B per-model ranks, aligned to ``rank_a``'s index.
+        cond_a_str: Condition A label (used in the ``rank_{cond_a}`` column).
+        cond_b_str: Condition B label.
+
+    Returns:
+        pd.DataFrame with columns ``model``, ``rank_{cond_a}``,
+        ``rank_{cond_b}``, ``delta_rank``, sorted by descending
+        ``|delta_rank|`` then model.
+    """
+    rank_a_col = f"rank_{cond_a_str}"
+    rank_b_col = f"rank_{cond_b_str}"
+    table = pd.DataFrame(
+        {
+            "model": rank_a.index.tolist(),
+            rank_a_col: rank_a.values.astype(float),
+            rank_b_col: rank_b.values.astype(float),
+        }
+    )
+    table["delta_rank"] = table[rank_b_col] - table[rank_a_col]
+    return (
+        table.assign(_abs_delta=table["delta_rank"].abs())
+        .sort_values(["_abs_delta", "model"], ascending=[False, True])
+        .drop(columns="_abs_delta")
+        .reset_index(drop=True)
+    )
+
+
+def compute_rank_sensitivity_from_ranks(
+    rank_a: pd.Series,
+    rank_b: pd.Series,
+    cond_a,
+    cond_b,
+    agg: str = "ranker",
+) -> RankSensitivityResult:
+    """Point-estimate rank sensitivity from two precomputed rank vectors.
+
+    Decouples the ranking step from the tau computation so any ranking method
+    (average rank, ELO, improvability, or a custom callable) can drive the
+    sensitivity readout — not only the ``_aggregate_scores`` family. The
+    inputs are assumed to be literal rank vectors, not arbitrary score-like
+    keys. No bootstrap CI is produced (``tau_ci`` is ``(nan, nan)``).
+
+    Args:
+        rank_a: Condition A per-model ranks (rank 1 = best), indexed by model.
+        rank_b: Condition B per-model ranks; must cover ``rank_a``'s roster.
+        cond_a: Label for condition A.
+        cond_b: Label for condition B.
+        agg: Label describing the ranking provenance (stored on the result for
+            provenance / plot titles).
+
+    Returns:
+        RankSensitivityResult: Point estimates (``tau``, ``rho``), the
+        ``delta_rank`` table, and ``tau_ci=(nan, nan)``.
+    """
+    rank_b = rank_b.loc[rank_a.index]
+    tau = float(kendalltau(rank_a.values, rank_b.values, method="auto").statistic)
+    rho = float(spearmanr(rank_a.values, rank_b.values).statistic)
+    table = _delta_table(rank_a, rank_b, str(cond_a), str(cond_b))
+    return RankSensitivityResult(
+        tau=tau,
+        tau_ci=(np.nan, np.nan),
+        rho=rho,
+        table=table,
+        cond_a=str(cond_a),
+        cond_b=str(cond_b),
+        agg=agg,
+    )
+
+
 def compute_rank_sensitivity(
     scores_a: pd.DataFrame,
     scores_b: pd.DataFrame,
@@ -104,23 +180,7 @@ def compute_rank_sensitivity(
 
     cond_a_str = str(cond_a)
     cond_b_str = str(cond_b)
-    rank_a_col = f"rank_{cond_a_str}"
-    rank_b_col = f"rank_{cond_b_str}"
-
-    table = pd.DataFrame(
-        {
-            "model": scores_a.index.tolist(),
-            rank_a_col: rank_a.values.astype(float),
-            rank_b_col: rank_b.values.astype(float),
-        }
-    )
-    table["delta_rank"] = table[rank_b_col] - table[rank_a_col]
-    table = (
-        table.assign(_abs_delta=table["delta_rank"].abs())
-        .sort_values(["_abs_delta", "model"], ascending=[False, True])
-        .drop(columns="_abs_delta")
-        .reset_index(drop=True)
-    )
+    table = _delta_table(rank_a, rank_b, cond_a_str, cond_b_str)
 
     if n_bootstrap == 0:
         tau_ci = (np.nan, np.nan)

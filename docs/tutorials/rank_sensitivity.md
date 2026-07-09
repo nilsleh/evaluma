@@ -12,7 +12,7 @@ kernelspec:
 
 # Rank Sensitivity: Do Model Rankings Hold Across Conditions?
 
-You have evaluated the same set of models on the same benchmark under two different experimental conditions, such as two optimizers, two data augmentation policies, or two training regimes. Each condition produces an aggregate ranking. A question that now arises, is whether those rankings agree or disagree, and how reliably they due. A single ranking difference between two models could be noise; a systematic reordering could imply that the leaderboard depends on the experimental condition, not on which model is genuinely best.
+You have evaluated the same set of models on the same benchmark under two different experimental conditions, such as two optimizers, two data augmentation policies, or two training regimes. Each condition produces an aggregate ranking. A natural next question is whether those rankings agree, and how stable that agreement is. A single ranking difference between two models could be noise; a systematic reordering could imply that the leaderboard depends materially on the experimental condition, not only on which model is best.
 
 :::{note}
 This tutorial covers rank-correlation analysis between two experimental conditions. For the aggregate rankings that feed into this analysis, see the [IQM ranking tutorial](iqm_ranking.md). For a direct probability statement ("how likely is Model-A to outperform Model-B on a new task?"), see the [Bayesian comparison tutorial](bayesian_comparison.md).
@@ -174,7 +174,9 @@ Before calling `rank_sensitivity`, you can narrow the comparison with `bench.dro
 :::
 
 :::{note}
-`rank_sensitivity` ranks models by `trimmed_mean` by default, matching `aggregate_ranking` and the IQM/rliable convention, so the two views always agree on the ordering they report. Pass `agg="mean"` (or `agg="median"`) to opt out — `"mean"` is the right choice for light-tailed or very-small-N data, where the 25% per-dataset trim discards too much (with 5 datasets only 3 contribute). The chosen mode is recorded on `result.agg` and appended to the default plot title.
+`rank_sensitivity` ranks models by `trimmed_mean` by default, matching `aggregate_ranking` and the IQM/rliable convention, so the two views agree on the ordering they report. Pass `agg="mean"` (or `agg="median"`) to opt out — `"mean"` is often the better choice for light-tailed or very-small-N data, where the 25% per-dataset trim discards too much (with 5 datasets only 3 contribute). The chosen ranking provenance is recorded on `result.agg` and appended to the default plot title.
+
+The same grouped workflow also supports alternate ranking backends via `ranker=`, for example `ranker="elo"` or `ranker="improvability"`. Those paths compare two precomputed rank vectors directly and return a point estimate with `tau_ci=(nan, nan)`. A custom callable ranker is also supported; it must return a numeric `pd.Series` indexed by model, with literal rank values where `1` means best.
 :::
 
 ## 4. The rank scatter plot

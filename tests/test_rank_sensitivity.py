@@ -10,7 +10,10 @@ from scipy.stats import kendalltau
 
 import evaluma
 from evaluma.benchmark import Benchmark, BenchmarkGroup
-from evaluma.methods.rank_sensitivity import compute_rank_sensitivity
+from evaluma.methods.rank_sensitivity import (
+    compute_rank_sensitivity,
+    compute_rank_sensitivity_from_ranks,
+)
 from evaluma.results import RankSensitivityResult
 
 matplotlib.use("Agg")
@@ -720,3 +723,186 @@ def test_plot_ax_argument():
     )
     assert fig is existing_ax.get_figure()
     plt.close(existing_fig)
+
+
+# --- from-ranks point-estimate core (decoupled ranker path) ----------------
+
+
+def test_from_ranks_point_estimate():
+    rank_a = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0})
+    rank_b = pd.Series({"A": 2.0, "B": 1.0, "C": 4.0, "D": 3.0})
+    result = compute_rank_sensitivity_from_ranks(rank_a, rank_b, "cond_a", "cond_b")
+    assert isinstance(result, RankSensitivityResult)
+    assert -1.0 <= result.tau <= 1.0
+    assert -1.0 <= result.rho <= 1.0
+    assert np.isnan(result.tau_ci[0]) and np.isnan(result.tau_ci[1])
+    assert set(result.table.columns) == {
+        "model",
+        "rank_cond_a",
+        "rank_cond_b",
+        "delta_rank",
+    }
+    abs_delta = result.table["delta_rank"].abs().tolist()
+    assert abs_delta == sorted(abs_delta, reverse=True)
+
+
+def test_from_ranks_realigns_b_to_a():
+    rank_a = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0})
+    rank_b = pd.Series({"A": 2.0, "B": 1.0, "C": 4.0, "D": 3.0})
+    shuffled = rank_b.loc[["D", "B", "A", "C"]]
+    ref = compute_rank_sensitivity_from_ranks(rank_a, rank_b, "X", "Y")
+    out = compute_rank_sensitivity_from_ranks(rank_a, shuffled, "X", "Y")
+    assert out.tau == pytest.approx(ref.tau)
+    assert out.rho == pytest.approx(ref.rho)
+    pd.testing.assert_frame_equal(out.table, ref.table)
+
+
+def test_from_ranks_constant_vector_nan():
+    rank_a = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0})
+    rank_b = pd.Series({"A": 2.0, "B": 2.0, "C": 2.0})  # degenerate / all tied
+    result = compute_rank_sensitivity_from_ranks(rank_a, rank_b, "X", "Y")
+    assert np.isnan(result.tau)
+
+
+# --- ranker registry (Benchmark._rank_vector) ------------------------------
+
+
+_RANKER_SCORES = {
+    "A": [0.95, 0.90, 0.92, 0.88, 0.94, 0.91],
+    "B": [0.80, 0.85, 0.82, 0.78, 0.81, 0.83],
+    "C": [0.70, 0.65, 0.72, 0.68, 0.71, 0.69],
+    "D": [0.55, 0.60, 0.52, 0.58, 0.54, 0.61],
+}
+
+
+@pytest.mark.parametrize("ranker", ["avg_rank", "elo", "improvability"])
+def test_rank_vector_named(ranker):
+    bench = _make_bench(_RANKER_SCORES)
+    ranks = bench._rank_vector(ranker)
+    assert isinstance(ranks, pd.Series)
+    assert set(ranks.index) == set(_RANKER_SCORES)
+    assert not ranks.isna().any()
+
+
+def test_rank_vector_callable_passthrough():
+    bench = _make_bench(_RANKER_SCORES)
+    sentinel = pd.Series({m: i for i, m in enumerate(_RANKER_SCORES)})
+
+    def custom(_bench):
+        return sentinel
+
+    out = bench._rank_vector(custom)
+    pd.testing.assert_series_equal(out, sentinel.astype(float))
+
+
+def test_rank_vector_callable_requires_series():
+    bench = _make_bench(_RANKER_SCORES)
+
+    def custom(_bench):
+        return {"A": 1.0}
+
+    with pytest.raises(TypeError, match="pandas Series"):
+        bench._rank_vector(custom)
+
+
+def test_rank_vector_callable_requires_matching_models():
+    bench = _make_bench(_RANKER_SCORES)
+
+    def custom(_bench):
+        return pd.Series({"A": 1.0, "B": 2.0, "C": 3.0})
+
+    with pytest.raises(ValueError, match="missing models"):
+        bench._rank_vector(custom)
+
+
+def test_rank_vector_callable_requires_numeric_finite_values():
+    bench = _make_bench(_RANKER_SCORES)
+
+    def non_numeric(_bench):
+        return pd.Series(
+            {m: f"rank-{i}" for i, m in enumerate(_RANKER_SCORES, start=1)}
+        )
+
+    with pytest.raises(TypeError, match="numeric rank values"):
+        bench._rank_vector(non_numeric)
+
+    def non_finite(_bench):
+        return pd.Series({m: np.inf for m in _RANKER_SCORES})
+
+    with pytest.raises(ValueError, match="finite rank values"):
+        bench._rank_vector(non_finite)
+
+
+def test_rank_vector_unknown_raises():
+    bench = _make_bench(_RANKER_SCORES)
+    with pytest.raises(ValueError, match="avg_rank.*elo.*improvability"):
+        bench._rank_vector("bogus")
+
+
+# --- Benchmark.rank_sensitivity(ranker=...) wiring -------------------------
+
+
+_RANKER_SCORES_B = {
+    "A": [0.80, 0.85, 0.82, 0.78, 0.81, 0.83],
+    "B": [0.95, 0.90, 0.92, 0.88, 0.94, 0.91],
+    "C": [0.55, 0.60, 0.52, 0.58, 0.54, 0.61],
+    "D": [0.70, 0.65, 0.72, 0.68, 0.71, 0.69],
+}
+
+
+def test_aggregate_backward_compat():
+    a = _make_bench(_RANKER_SCORES)
+    b = _make_bench(_RANKER_SCORES_B)
+    got = a.rank_sensitivity(b, "condA", "condB", ranker="aggregate", random_state=0)
+    aligned_b = b.scores_.loc[a.scores_.index, a.scores_.columns]
+    expected = compute_rank_sensitivity(
+        a.scores_, aligned_b, "condA", "condB", random_state=0
+    )
+    assert got.tau == pytest.approx(expected.tau)
+    assert got.tau_ci == pytest.approx(expected.tau_ci)
+    assert got.rho == pytest.approx(expected.rho)
+    pd.testing.assert_frame_equal(got.table, expected.table)
+
+
+@pytest.mark.parametrize("ranker", ["avg_rank", "elo", "improvability"])
+def test_ranker_point_estimate(ranker):
+    a = _make_bench(_RANKER_SCORES)
+    b = _make_bench(_RANKER_SCORES_B)
+    result = a.rank_sensitivity(b, "condA", "condB", ranker=ranker)
+    assert -1.0 <= result.tau <= 1.0
+    assert np.isnan(result.tau_ci[0]) and np.isnan(result.tau_ci[1])
+
+
+def test_ranker_callable():
+    a = _make_bench(_RANKER_SCORES)
+    b = _make_bench(_RANKER_SCORES_B)
+
+    def by_mean(bench):
+        return bench.scores_.mean(axis=1).rank(ascending=False, method="average")
+
+    result = a.rank_sensitivity(b, "condA", "condB", ranker=by_mean)
+    assert -1.0 <= result.tau <= 1.0
+    assert np.isnan(result.tau_ci[0]) and np.isnan(result.tau_ci[1])
+
+
+@pytest.mark.parametrize("ranker", ["avg_rank", "elo", "improvability"])
+def test_group_ranker_point_estimate(ranker):
+    group = _make_group({"condA": _RANKER_SCORES, "condB": _RANKER_SCORES_B})
+    result = group.rank_sensitivity("condA", "condB", ranker=ranker)
+    assert -1.0 <= result.tau <= 1.0
+    assert np.isnan(result.tau_ci[0]) and np.isnan(result.tau_ci[1])
+    assert result.agg == ranker
+
+
+def test_ranker_warns_on_bootstrap():
+    a = _make_bench(_RANKER_SCORES)
+    b = _make_bench(_RANKER_SCORES_B)
+    with pytest.warns(UserWarning, match="bootstrap|CI|ignored"):
+        a.rank_sensitivity(b, "condA", "condB", ranker="elo", n_bootstrap=100)
+
+
+def test_ranker_validates_identical_sets():
+    a = _make_bench(_RANKER_SCORES)
+    b_missing = _make_bench({m: v for m, v in _RANKER_SCORES_B.items() if m != "D"})
+    with pytest.raises(ValueError, match="mismatch"):
+        a.rank_sensitivity(b_missing, "condA", "condB", ranker="elo")
